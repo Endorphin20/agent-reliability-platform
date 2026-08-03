@@ -1,0 +1,345 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 全部 enum 是 packages/shared/src/enums.ts 的镜像，契约测试做集合比对
+enum TaskSource {
+  MANUAL
+  GITHUB_ISSUE
+  WORKFLOW_RUN
+}
+
+enum TaskStatus {
+  CREATED
+  QUEUED
+  RUNNING
+  AWAITING_APPROVAL
+  APPROVED
+  PR_CREATED
+  PR_FAILED
+  RESOLVED
+  REJECTED
+  FAILED
+  CANCELLED
+}
+
+enum RunStatus {
+  PENDING
+  DISPATCHED
+  RUNNING
+  VERIFYING
+  INTERRUPTED
+  RECOVERING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AttemptStatus {
+  CLAIMED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CRASHED
+  TIMED_OUT
+  LEASE_EXPIRED
+}
+
+enum AgentKind {
+  SELF_LANGGRAPH
+  MINI_SWE
+}
+
+enum TraceEventType {
+  MODEL_CALL
+  TOOL_CALL
+  FILE_CHANGE
+  COMMAND_EXEC
+  STATE_TRANSITION
+  CHECKPOINT_SAVED
+  FAILURE_DETECTED
+  RECOVERY_ACTION
+  VERIFICATION_RESULT
+  APPROVAL_EVENT
+  BUDGET_UPDATE
+}
+
+enum FailureCode {
+  MODEL_RATE_LIMIT
+  MODEL_API_ERROR
+  MODEL_BAD_OUTPUT
+  TOOL_EXEC_ERROR
+  PATCH_APPLY_FAILED
+  SANDBOX_START_FAILED
+  SANDBOX_CRASHED
+  WORKER_LOST
+  BUDGET_TOKENS_EXCEEDED
+  BUDGET_TIME_EXCEEDED
+  BUDGET_TURNS_EXCEEDED
+  AGENT_STUCK
+  VERIFY_PATCH_MALFORMED
+  VERIFY_SCOPE_VIOLATION
+  VERIFY_STATIC_FAILED
+  VERIFY_TARGET_TESTS_FAILED
+  VERIFY_REGRESSION_FAILED
+  VERIFY_TEST_TAMPERING
+  HUMAN_REJECTED
+  CANCELLED_BY_USER
+}
+
+enum PolicyAction {
+  RESUME
+  RESTART_ATTEMPT
+  ESCALATE_HUMAN
+  ABORT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+enum ArtifactKind {
+  PATCH
+  TEST_REPORT
+  LOG
+  JUDGE_REPORT
+}
+
+model Workspace {
+  id        String    @id @default(cuid())
+  name      String
+  projects  Project[]
+  createdAt DateTime  @default(now())
+}
+
+model Project {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  name          String
+  repoPath      String // 本地 fixture 仓库路径（dev/test）
+  githubRepo    String? // "owner/name"（demo 环境）
+  defaultBranch String    @default("main")
+  tasks         Task[]
+  createdAt     DateTime  @default(now())
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id])
+  title        String
+  description  String
+  source       TaskSource
+  sourceRef    String? // issue url / workflow_run id
+  fixtureId    String? // 关联 fixture task.yaml 的 id
+  status       TaskStatus @default(CREATED)
+  allowedPaths Json // string[]，Verifier V2 用
+  runs         Run[]
+  approval     Approval?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Run {
+  id                  String               @id @default(cuid())
+  taskId              String
+  task                Task                 @relation(fields: [taskId], references: [id])
+  agentKind           AgentKind
+  status              RunStatus            @default(PENDING)
+  baseCommit          String
+  maxAttempts         Int                  @default(3)
+  budgetTokens        Int                  @default(200000)
+  budgetSeconds       Int                  @default(900)
+  budgetTurns         Int                  @default(30)
+  usedTokens          Int                  @default(0)
+  usedSeconds         Int                  @default(0)
+  lastSequence        Int                  @default(0) // runSequence 分配器
+  // 评测实验开关（T11）：--no-recovery（Policy 全 ABORT）与 --feedback {structured|raw}
+  recoveryDisabled    Boolean              @default(false)
+  feedbackMode        String               @default("structured")
+  attempts            Attempt[]
+  traceEvents         TraceEvent[]
+  checkpoints         Checkpoint[]
+  artifacts           Artifact[]
+  verificationResults VerificationResult[]
+  policyDecisions     PolicyDecision[]
+  approvals           Approval[]
+  evaluationResults   EvaluationResult[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Attempt {
+  id                  String               @id @default(cuid())
+  runId               String
+  run                 Run                  @relation(fields: [runId], references: [id])
+  no                  Int
+  workerId            String?
+  status              AttemptStatus        @default(CLAIMED)
+  failureCode         FailureCode?
+  leaseExpiresAt      DateTime?
+  startedAt           DateTime             @default(now())
+  endedAt             DateTime?
+  traceEvents         TraceEvent[]
+  checkpoints         Checkpoint[]
+  artifacts           Artifact[]
+  verificationResults VerificationResult[]
+  policyDecisions     PolicyDecision[]
+
+  @@unique([runId, no])
+  @@index([status, leaseExpiresAt]) // LeaseMonitor 扫描用
+}
+
+model TraceEvent {
+  id              BigInt         @id @default(autoincrement())
+  runId           String
+  run             Run            @relation(fields: [runId], references: [id])
+  // 可空：Control Plane 合成的 run/task 级 STATE_TRANSITION 事件可能早于任何 Attempt
+  attemptId       String?
+  attempt         Attempt?       @relation(fields: [attemptId], references: [id])
+  runSequence     Int // Control Plane 落库时分配
+  attemptSequence Int // Runtime 分配，attempt 内单调；内部合成事件为 0
+  type            TraceEventType
+  payload         Json
+  idempotencyKey  String         @unique
+  occurredAt      DateTime
+  createdAt       DateTime       @default(now())
+
+  @@unique([runId, runSequence])
+}
+
+model Checkpoint {
+  id                 String   @id @default(cuid())
+  runId              String
+  run                Run      @relation(fields: [runId], references: [id])
+  attemptId          String
+  attempt            Attempt  @relation(fields: [attemptId], references: [id])
+  threadId           String // LangGraph thread_id = runId
+  baseCommit         String
+  appliedPatchSha    String? // 已应用补丁摘要
+  appliedPatch       String? // 相对 base 的累计 diff 全文，恢复时重建沙箱状态
+  completedToolCalls Json // { [toolCallId]: resultDigest }
+  usedTokens         Int
+  usedSeconds        Int
+  createdAt          DateTime @default(now())
+
+  @@index([runId, createdAt])
+}
+
+model Artifact {
+  id        String       @id @default(cuid())
+  runId     String
+  run       Run          @relation(fields: [runId], references: [id])
+  attemptId String
+  attempt   Attempt      @relation(fields: [attemptId], references: [id])
+  kind      ArtifactKind
+  name      String // 如 "fix.patch" / "vitest-report.txt"
+  content   String // 补丁全文 / 报告文本（MVP 直接存 DB text）
+  sizeBytes Int
+  createdAt DateTime     @default(now())
+
+  @@index([runId, kind])
+}
+
+model VerificationResult {
+  id          String       @id @default(cuid())
+  runId       String
+  run         Run          @relation(fields: [runId], references: [id])
+  attemptId   String
+  attempt     Attempt      @relation(fields: [attemptId], references: [id])
+  step        String // "V1".."V6"
+  passed      Boolean
+  failureCode FailureCode?
+  detail      Json // stdout 摘要 / 违规文件列表等
+  durationMs  Int
+  createdAt   DateTime     @default(now())
+}
+
+model PolicyDecision {
+  id          String      @id @default(cuid())
+  runId       String
+  run         Run         @relation(fields: [runId], references: [id])
+  attemptId   String
+  attempt     Attempt     @relation(fields: [attemptId], references: [id])
+  failureCode FailureCode
+  action      PolicyAction
+  reason      String
+  createdAt   DateTime    @default(now())
+}
+
+model Approval {
+  id        String         @id @default(cuid())
+  taskId    String         @unique
+  task      Task           @relation(fields: [taskId], references: [id])
+  runId     String
+  run       Run            @relation(fields: [runId], references: [id])
+  status    ApprovalStatus @default(PENDING)
+  reviewer  String?
+  decidedAt DateTime?
+  prUrl     String?
+  prError   String? // PR 创建失败原因，前端展示重试按钮
+  createdAt DateTime       @default(now())
+}
+
+model OutboxMessage {
+  id          String       @id @default(cuid())
+  topic       String // "run-commands"
+  key         String // runId
+  payload     Json // RunCommand
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  publishedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model WebhookDelivery {
+  deliveryId String   @id // X-GitHub-Delivery，天然去重
+  event      String
+  taskId     String?
+  receivedAt DateTime @default(now())
+}
+
+model EvaluationRun {
+  id             String             @id @default(cuid())
+  suite          String
+  agentKind      AgentKind
+  faultInjection String? // none | kill-sandbox | kill-worker | model-429
+  startedAt      DateTime           @default(now())
+  finishedAt     DateTime?
+  results        EvaluationResult[]
+}
+
+model EvaluationResult {
+  id              String        @id @default(cuid())
+  evaluationRunId String
+  evaluationRun   EvaluationRun @relation(fields: [evaluationRunId], references: [id])
+  fixtureId       String
+  runId           String
+  run             Run           @relation(fields: [runId], references: [id])
+  resolved        Boolean
+  firstTrySuccess Boolean
+  recovered       Boolean? // 无故障注入时为 null
+  recoveryMode    String? // checkpoint | attempt-restart（capability 标注）
+  scopeViolations Int
+  tokens          Int
+  costUsd         Decimal       @db.Decimal(10, 4)
+  wallSeconds     Int
+  judgeScores     Json // 逐验收条 0–5 分
+}

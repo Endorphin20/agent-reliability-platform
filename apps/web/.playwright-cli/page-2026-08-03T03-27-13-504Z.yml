@@ -1,0 +1,12 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Agent Reliability Platform" [ref=e4] [cursor=pointer]:
+        - /url: /tasks
+      - navigation [ref=e5]:
+        - link "任务" [ref=e6] [cursor=pointer]:
+          - /url: /tasks
+        - link "评测对比" [ref=e7] [cursor=pointer]:
+          - /url: /evaluations
+  - main [ref=e8]
+  - button "Open Next.js Dev Tools" [ref=e15] [cursor=pointer]

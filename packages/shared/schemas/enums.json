@@ -1,0 +1,114 @@
+{
+  "TaskSource": [
+    "MANUAL",
+    "GITHUB_ISSUE",
+    "WORKFLOW_RUN"
+  ],
+  "TaskStatus": [
+    "CREATED",
+    "QUEUED",
+    "RUNNING",
+    "AWAITING_APPROVAL",
+    "APPROVED",
+    "PR_CREATED",
+    "PR_FAILED",
+    "RESOLVED",
+    "REJECTED",
+    "FAILED",
+    "CANCELLED"
+  ],
+  "RunStatus": [
+    "PENDING",
+    "DISPATCHED",
+    "RUNNING",
+    "VERIFYING",
+    "INTERRUPTED",
+    "RECOVERING",
+    "SUCCEEDED",
+    "FAILED",
+    "CANCELLED"
+  ],
+  "AttemptStatus": [
+    "CLAIMED",
+    "RUNNING",
+    "SUCCEEDED",
+    "FAILED",
+    "CRASHED",
+    "TIMED_OUT",
+    "LEASE_EXPIRED"
+  ],
+  "AgentKind": [
+    "SELF_LANGGRAPH",
+    "MINI_SWE"
+  ],
+  "TraceEventType": [
+    "MODEL_CALL",
+    "TOOL_CALL",
+    "FILE_CHANGE",
+    "COMMAND_EXEC",
+    "STATE_TRANSITION",
+    "CHECKPOINT_SAVED",
+    "FAILURE_DETECTED",
+    "RECOVERY_ACTION",
+    "VERIFICATION_RESULT",
+    "APPROVAL_EVENT",
+    "BUDGET_UPDATE"
+  ],
+  "FailureCode": [
+    "MODEL_RATE_LIMIT",
+    "MODEL_API_ERROR",
+    "MODEL_BAD_OUTPUT",
+    "TOOL_EXEC_ERROR",
+    "PATCH_APPLY_FAILED",
+    "SANDBOX_START_FAILED",
+    "SANDBOX_CRASHED",
+    "WORKER_LOST",
+    "BUDGET_TOKENS_EXCEEDED",
+    "BUDGET_TIME_EXCEEDED",
+    "BUDGET_TURNS_EXCEEDED",
+    "AGENT_STUCK",
+    "VERIFY_PATCH_MALFORMED",
+    "VERIFY_SCOPE_VIOLATION",
+    "VERIFY_STATIC_FAILED",
+    "VERIFY_TARGET_TESTS_FAILED",
+    "VERIFY_REGRESSION_FAILED",
+    "VERIFY_TEST_TAMPERING",
+    "HUMAN_REJECTED",
+    "CANCELLED_BY_USER"
+  ],
+  "PolicyAction": [
+    "RESUME",
+    "RESTART_ATTEMPT",
+    "ESCALATE_HUMAN",
+    "ABORT"
+  ],
+  "ApprovalStatus": [
+    "PENDING",
+    "APPROVED",
+    "REJECTED"
+  ],
+  "OutboxStatus": [
+    "PENDING",
+    "PUBLISHED",
+    "FAILED"
+  ],
+  "ArtifactKind": [
+    "PATCH",
+    "TEST_REPORT",
+    "LOG",
+    "JUDGE_REPORT"
+  ],
+  "RunCommandType": [
+    "START_RUN",
+    "RESUME_RUN",
+    "CANCEL_RUN"
+  ],
+  "VerifierStep": [
+    "V1",
+    "V2",
+    "V3",
+    "V4",
+    "V5",
+    "V6"
+  ]
+}
