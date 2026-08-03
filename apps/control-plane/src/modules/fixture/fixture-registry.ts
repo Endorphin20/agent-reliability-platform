@@ -32,6 +32,10 @@ interface TaskYaml {
   pass_to_pass: string[];
   gold_patch: string;
   acceptance_criteria: string[];
+  // SWE-bench 类任务扩展：repo_path 指向本地上游仓库克隆（缺省用 fixture 仓库），
+  // test_patch 是基准自带的验证测试补丁（Agent 不可见，Verifier 应用）
+  repo_path?: string;
+  test_patch?: string;
 }
 
 /**
@@ -81,7 +85,9 @@ export class FixtureRegistry {
             id: raw.id,
             title: raw.title,
             category: raw.category,
-            repoPath: this.repoPath(),
+            repoPath: raw.repo_path
+              ? raw.repo_path.replace(/^~/, homedir())
+              : this.repoPath(),
             baseCommit: raw.base_ref,
             goldPatch: raw.gold_patch,
             acceptanceCriteria: raw.acceptance_criteria ?? [],
@@ -94,6 +100,7 @@ export class FixtureRegistry {
               failToPass: raw.fail_to_pass ?? [],
               passToPass: raw.pass_to_pass ?? [],
               acceptanceCriteria: raw.acceptance_criteria ?? [],
+              ...(raw.test_patch ? { testPatch: raw.test_patch } : {}),
             },
           });
         } catch (error) {

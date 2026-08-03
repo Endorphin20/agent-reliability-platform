@@ -70,6 +70,16 @@ def _is_test_file(path: str) -> bool:
     return any(marker in path for marker in TEST_FILE_MARKERS)
 
 
+def _git_apply(workdir: Path, patch: str, reverse: bool = False) -> None:
+    """宿主侧应用/回滚补丁（补丁文件放在 workdir 之外，避免 Agent 可见）。"""
+    args = ["git", "apply", "--whitespace=nowarn"] + (["--reverse"] if reverse else [])
+    result = subprocess.run(
+        args, cwd=workdir, input=patch, capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git apply{' -R' if reverse else ''} 失败: {result.stderr[:500]}")
+
+
 class VerifierPipeline:
     def __init__(
         self,
@@ -157,22 +167,43 @@ class VerifierPipeline:
             return fail(patch)
         results.append(self._record("V6", True, None, {"checkedFiles": len(changed)}, started))
 
-        # V3 静态检查
-        v3 = self._run_commands("V3", self.spec.staticCheck, "VERIFY_STATIC_FAILED")
-        results.append(v3)
-        if not v3.passed:
-            return fail(patch)
+        # SWE-bench 类任务：验证测试来自基准自带 test_patch。此刻应用（V1 的
+        # Agent diff 已捕获、V2/V6 已按 Agent 变更判定），跑完测试立即回滚——
+        # 验证失败回炉时 Agent 不应看到基准测试内容，V6 下轮也不会误报。
+        test_patch = self.spec.testPatch or ""
+        if test_patch.strip():
+            started = time.monotonic()
+            try:
+                _git_apply(self.sandbox.workdir, test_patch)
+            except RuntimeError as exc:
+                results.append(self._record(
+                    "V4", False, "VERIFY_TARGET_TESTS_FAILED",
+                    {"error": f"应用基准 test_patch 失败: {exc}"}, started))
+                return fail(patch)
 
-        # V4 定向测试
-        v4 = self._run_commands("V4", self.spec.failToPass, "VERIFY_TARGET_TESTS_FAILED")
-        results.append(v4)
-        if not v4.passed:
-            return fail(patch)
+        try:
+            # V3 静态检查
+            v3 = self._run_commands("V3", self.spec.staticCheck, "VERIFY_STATIC_FAILED")
+            results.append(v3)
+            if not v3.passed:
+                return fail(patch)
 
-        # V5 回归测试
-        v5 = self._run_commands("V5", self.spec.passToPass, "VERIFY_REGRESSION_FAILED")
-        results.append(v5)
-        if not v5.passed:
-            return fail(patch)
+            # V4 定向测试
+            v4 = self._run_commands("V4", self.spec.failToPass, "VERIFY_TARGET_TESTS_FAILED")
+            results.append(v4)
+            if not v4.passed:
+                return fail(patch)
+
+            # V5 回归测试
+            v5 = self._run_commands("V5", self.spec.passToPass, "VERIFY_REGRESSION_FAILED")
+            results.append(v5)
+            if not v5.passed:
+                return fail(patch)
+        finally:
+            if test_patch.strip():
+                try:
+                    _git_apply(self.sandbox.workdir, test_patch, reverse=True)
+                except RuntimeError:
+                    pass  # 沙箱随 run 销毁，回滚失败不致命
 
         return VerifyReport(passed=True, results=results, patch=patch)

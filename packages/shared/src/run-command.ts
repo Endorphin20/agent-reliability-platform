@@ -16,6 +16,9 @@ export const TaskSpecSchema = z.object({
   failToPass: z.array(z.string()),
   passToPass: z.array(z.string()),
   acceptanceCriteria: z.array(z.string()), // LLM Judge 逐条打分依据
+  // SWE-bench 类任务：验证用测试来自基准自带的 test_patch，Agent 不可见，
+  // Verifier 在 V6 之后、跑测试之前应用，跑完立即回滚
+  testPatch: z.string().optional(),
 });
 
 export const BudgetSchema = z.object({

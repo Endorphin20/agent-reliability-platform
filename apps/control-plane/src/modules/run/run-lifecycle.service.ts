@@ -134,6 +134,9 @@ export class RunLifecycleService {
     agentKind: AgentKind;
     recoveryDisabled?: boolean;
     feedbackMode?: 'structured' | 'raw';
+    budgetTokens?: number;
+    budgetSeconds?: number;
+    budgetTurns?: number;
   }) {
     const fixture = this.fixtures.get(input.fixtureId);
     return this.prisma.$transaction(async (tx) => {
@@ -156,6 +159,9 @@ export class RunLifecycleService {
           baseCommit: fixture.baseCommit,
           recoveryDisabled: input.recoveryDisabled ?? false,
           feedbackMode: input.feedbackMode ?? 'structured',
+          ...(input.budgetTokens ? { budgetTokens: input.budgetTokens } : {}),
+          ...(input.budgetSeconds ? { budgetSeconds: input.budgetSeconds } : {}),
+          ...(input.budgetTurns ? { budgetTurns: input.budgetTurns } : {}),
         },
       });
       await this.transitionTask(tx, task.id, 'CREATED', 'QUEUED');

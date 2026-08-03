@@ -15,7 +15,7 @@
 | --- | --- |
 | 可观测 | 15 类 TraceEvent 事件溯源（MODEL_CALL / TOOL_CALL / CHECKPOINT_SAVED / RECOVERY_ACTION…），Run 级严格递增 sequence，SSE 实时推送到前端时间线 |
 | 可恢复 | 三种故障注入（kill 沙箱 / kill worker / 模型 429）全部自动恢复：租约心跳判活、Policy 决策表（RESUME/RETRY/ESCALATE/ABORT）、LangGraph PostgresSaver checkpoint 续跑、已完成工具调用幂等缓存（`cached=true`） |
-| 可评测 | `arp-eval` CLI 对 12 个金标 fixture 跑批：自研 LangGraph Agent vs mini-SWE-agent 双 Agent 对比、故障注入 ± 恢复消融、结构化 vs 原始反馈消融；LLM Judge（独立模型 claude-opus-4-6）按验收条款逐条打分 |
+| 可评测 | `arp-eval` CLI 跑批：12 个自建金标 fixture + **SWE-bench Lite 12 实例子集**（django/sympy 真实历史 bug，基准 test_patch 对 Agent 不可见）；双 Agent 对比、故障注入 ± 恢复消融、反馈模式消融；LLM Judge（独立模型 claude-opus-4-6）按验收条款逐条打分 |
 | 可治理 | V1–V6 六步 Verifier 门禁（补丁形态/改动范围/静态检查/定向测试/回归测试/作弊检测）+ 人工审批后才建 PR |
 
 ## 架构总览
@@ -80,6 +80,21 @@ uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox
 uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox --no-recovery
 uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox --feedback raw
 uv run arp-eval report       # 汇总表
+```
+
+### SWE-bench Lite 子集
+
+```bash
+# 一次性准备：克隆上游仓库 + 从 Lite 数据集生成 swb-* fixture + 金标验证
+git clone https://github.com/django/django.git ~/Coding/agent-reliability/swebench-repos/django
+git clone https://github.com/sympy/sympy.git  ~/Coding/agent-reliability/swebench-repos/sympy
+cd apps/agent-runtime
+uv run --with pyarrow --with pyyaml python ../../scripts/swebench_import.py   # 生成 fixture
+uv run --with pyyaml python ../../scripts/swebench_validate.py               # 金标补丁必须全过
+
+# 评测（预算自动放宽到 400k tokens / 2400s / 50 轮）
+uv run arp-eval run --suite swebench --agent self
+uv run arp-eval run --suite swebench --agent mini-swe
 ```
 
 ## 测试

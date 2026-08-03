@@ -53,13 +53,21 @@ def _client() -> httpx.Client:
     return httpx.Client(base_url=get_settings().control_plane_url, timeout=30.0)
 
 
+# swebench 任务显著更重：预算与轮询超时单独放宽
+SWEBENCH_BUDGET = {"budgetTokens": 400_000, "budgetSeconds": 2400, "budgetTurns": 50}
+SWEBENCH_RUN_TIMEOUT_S = 3600
+
+
 def _suite_fixtures(client: httpx.Client, suite: str) -> list[str]:
     fixtures = [f["id"] for f in client.get("/api/fixtures").json() if f["id"] != "fake"]
+    handmade = sorted(f for f in fixtures if not f.startswith("swb-"))
     if suite == "fixture-12":
-        return sorted(fixtures)
+        return handmade
     if suite == "smoke":
-        return sorted(fixtures)[:2]
-    raise typer.BadParameter(f"未知 suite: {suite}（可选 fixture-12 | smoke）")
+        return handmade[:2]
+    if suite == "swebench":
+        return sorted(f for f in fixtures if f.startswith("swb-"))
+    raise typer.BadParameter(f"未知 suite: {suite}（可选 fixture-12 | smoke | swebench）")
 
 
 def _kill_sandbox_when_ready(client: httpx.Client, run_id: str, timeout_s: int = 300) -> bool:
@@ -88,8 +96,8 @@ def _kill_sandbox_when_ready(client: httpx.Client, run_id: str, timeout_s: int =
     return False
 
 
-def _wait_terminal(client: httpx.Client, run_id: str) -> dict[str, Any]:
-    deadline = time.time() + RUN_TIMEOUT_S
+def _wait_terminal(client: httpx.Client, run_id: str, timeout_s: int = RUN_TIMEOUT_S) -> dict[str, Any]:
+    deadline = time.time() + timeout_s
     while time.time() < deadline:
         run = client.get(f"/api/runs/{run_id}").json()
         if run["status"] in TERMINAL_RUN:
@@ -118,7 +126,8 @@ def _cost_usd(client: httpx.Client, run_id: str) -> float:
 def _collect_result(
     client: httpx.Client, fixture_id: str, run_id: str, fault: str, agent_kind: str
 ) -> dict[str, Any]:
-    run = _wait_terminal(client, run_id)
+    timeout_s = SWEBENCH_RUN_TIMEOUT_S if fixture_id.startswith("swb-") else RUN_TIMEOUT_S
+    run = _wait_terminal(client, run_id, timeout_s)
     resolved = run["status"] == "SUCCEEDED"
     attempts = run.get("attempts", [])
     scope_violations = sum(
@@ -155,7 +164,7 @@ def _collect_result(
 
 @app.command()
 def run(
-    suite: str = typer.Option("fixture-12", help="任务集：fixture-12 | smoke"),
+    suite: str = typer.Option("fixture-12", help="任务集：fixture-12 | smoke | swebench"),
     agent: str = typer.Option(..., help="self | mini-swe"),
     fault_inject: str = typer.Option(
         "none", "--fault-inject", help="none | kill-sandbox | kill-worker | model-429"
@@ -201,6 +210,7 @@ def run(
             "agentKind": agent_kind,
             "recoveryDisabled": no_recovery,
             "feedbackMode": feedback,
+            **(SWEBENCH_BUDGET if fixture_id.startswith("swb-") else {}),
         }).json()
         run_id = created["runId"]
 
