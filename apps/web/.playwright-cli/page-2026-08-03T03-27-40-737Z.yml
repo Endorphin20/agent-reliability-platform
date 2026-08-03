@@ -1,0 +1,90 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Agent Reliability Platform" [ref=e4] [cursor=pointer]:
+        - /url: /tasks
+      - navigation [ref=e5]:
+        - link "任务" [ref=e6] [cursor=pointer]:
+          - /url: /tasks
+        - link "评测对比" [ref=e7] [cursor=pointer]:
+          - /url: /evaluations
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "评测对比" [level=1] [ref=e11]
+        - paragraph [ref=e12]: arp-eval 批次结果：自研 LangGraph Agent vs mini-SWE-agent（12 个 fixture 任务）； 恢复成功率按恢复粒度分组 —— checkpoint 恢复（自研）与 attempt 级重启（mini-SWE）不直接横比
+      - table [ref=e14]:
+        - rowgroup [ref=e15]:
+          - row [ref=e16]:
+            - columnheader "批次" [ref=e17]
+            - columnheader "Agent" [ref=e18]
+            - columnheader "故障注入" [ref=e19]
+            - columnheader "解决率" [ref=e20]
+            - columnheader "首试成功" [ref=e21]
+            - columnheader "恢复成功" [ref=e22]
+            - columnheader "均值 tokens" [ref=e23]
+            - columnheader "成本" [ref=e24]
+            - columnheader "Judge" [ref=e25]
+        - rowgroup [ref=e26]:
+          - row [ref=e27] [cursor=pointer]:
+            - cell "fixture-12 2026/8/3 11:19:09 · 进行中…" [ref=e28]:
+              - generic [ref=e29]: fixture-12
+              - generic [ref=e30]: 2026/8/3 11:19:09 · 进行中…
+            - cell "自研 LangGraph" [ref=e31]
+            - cell "无" [ref=e33]
+            - cell "50%" [ref=e34]
+            - cell "50%" [ref=e35]
+            - cell "—" [ref=e36]
+            - cell "73,495" [ref=e37]
+            - cell "$0.30" [ref=e38]
+            - cell "5.00" [ref=e39]
+          - row [ref=e40] [cursor=pointer]:
+            - cell "smoke 2026/8/3 11:17:34" [ref=e41]:
+              - generic [ref=e42]: smoke
+              - generic [ref=e43]: 2026/8/3 11:17:34
+            - cell "自研 LangGraph" [ref=e44]
+            - cell "kill-sandbox" [ref=e46]
+            - cell "100%" [ref=e47]
+            - cell "0%" [ref=e48]
+            - cell "100%" [ref=e49]
+            - cell "23,917" [ref=e50]
+            - cell "$0.04" [ref=e51]
+            - cell "5.00" [ref=e52]
+          - row [ref=e53] [cursor=pointer]:
+            - cell "smoke 2026/8/3 11:14:49" [ref=e54]:
+              - generic [ref=e55]: smoke
+              - generic [ref=e56]: 2026/8/3 11:14:49
+            - cell "自研 LangGraph" [ref=e57]
+            - cell "kill-sandbox" [ref=e59]
+            - cell "0%" [ref=e60]
+            - cell "0%" [ref=e61]
+            - cell "0%" [ref=e62]
+            - cell "11,155" [ref=e63]
+            - cell "$0.03" [ref=e64]
+            - cell "—" [ref=e65]
+          - row [ref=e66] [cursor=pointer]:
+            - cell "smoke 2026/8/3 11:05:00" [ref=e67]:
+              - generic [ref=e68]: smoke
+              - generic [ref=e69]: 2026/8/3 11:05:00
+            - cell "自研 LangGraph" [ref=e70]
+            - cell "kill-sandbox" [ref=e72]
+            - cell "0%" [ref=e73]
+            - cell "0%" [ref=e74]
+            - cell "0%" [ref=e75]
+            - cell "199,683" [ref=e76]
+            - cell "$0.40" [ref=e77]
+            - cell "—" [ref=e78]
+          - row [ref=e79] [cursor=pointer]:
+            - cell "smoke 2026/8/3 11:01:08" [ref=e80]:
+              - generic [ref=e81]: smoke
+              - generic [ref=e82]: 2026/8/3 11:01:08
+            - cell "自研 LangGraph" [ref=e83]
+            - cell "无" [ref=e85]
+            - cell "100%" [ref=e86]
+            - cell "100%" [ref=e87]
+            - cell "—" [ref=e88]
+            - cell "30,848" [ref=e89]
+            - cell "$0.12" [ref=e90]
+            - cell "4.80" [ref=e91]
+  - button "Open Next.js Dev Tools" [ref=e97] [cursor=pointer]
+  - alert [ref=e101]

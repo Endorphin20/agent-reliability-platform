@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: arp
+      POSTGRES_PASSWORD: arp
+      POSTGRES_DB: arp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # 演示增强项（可裁剪）：TraceEvent 经 OTLP 导出到 Jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    ports:
+      - "4318:4318"
+      - "16686:16686"
+    profiles:
+      - observability
+
+volumes:
+  pgdata:

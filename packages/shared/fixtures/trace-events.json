@@ -1,0 +1,139 @@
+[
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 1,
+    "occurredAt": "2026-07-20T06:00:00.000Z",
+    "idempotencyKey": "run_01:1:1",
+    "type": "MODEL_CALL",
+    "payload": {
+      "model": "glm-4.6v",
+      "promptTokens": 1200,
+      "completionTokens": 340,
+      "latencyMs": 2100,
+      "turn": 1
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 2,
+    "occurredAt": "2026-07-20T06:00:05.000Z",
+    "idempotencyKey": "run_01:1:2",
+    "type": "TOOL_CALL",
+    "payload": {
+      "toolCallId": "tc_001",
+      "tool": "read_file",
+      "args": { "path": "packages/cart/src/discount.ts" },
+      "resultDigest": "sha256:abc123",
+      "durationMs": 12,
+      "cached": false
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 3,
+    "occurredAt": "2026-07-20T06:00:09.000Z",
+    "idempotencyKey": "run_01:1:3",
+    "type": "FILE_CHANGE",
+    "payload": {
+      "path": "packages/cart/src/discount.ts",
+      "changeType": "modify",
+      "diffStat": { "additions": 4, "deletions": 2 }
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 4,
+    "occurredAt": "2026-07-20T06:00:15.000Z",
+    "idempotencyKey": "run_01:1:4",
+    "type": "COMMAND_EXEC",
+    "payload": {
+      "command": "pnpm -C packages/cart vitest run src/discount.spec.ts",
+      "exitCode": 0,
+      "stdoutTail": "Tests  6 passed (6)",
+      "durationMs": 4300
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 5,
+    "occurredAt": "2026-07-20T06:00:16.000Z",
+    "idempotencyKey": "run_01:1:5",
+    "type": "STATE_TRANSITION",
+    "payload": { "entity": "run", "from": "RUNNING", "to": "VERIFYING" }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 6,
+    "occurredAt": "2026-07-20T06:00:17.000Z",
+    "idempotencyKey": "run_01:1:6",
+    "type": "CHECKPOINT_SAVED",
+    "payload": { "checkpointId": "ckpt_01", "usedTokens": 15400, "usedSeconds": 95 }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 7,
+    "occurredAt": "2026-07-20T06:00:20.000Z",
+    "idempotencyKey": "run_01:1:7",
+    "type": "FAILURE_DETECTED",
+    "payload": { "failureCode": "SANDBOX_CRASHED", "message": "container exited with 137" }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_02",
+    "attemptNo": 2,
+    "attemptSequence": 1,
+    "occurredAt": "2026-07-20T06:00:25.000Z",
+    "idempotencyKey": "run_01:2:1",
+    "type": "RECOVERY_ACTION",
+    "payload": { "action": "RESUME", "fromCheckpointId": "ckpt_01", "newAttemptNo": 2 }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_02",
+    "attemptNo": 2,
+    "attemptSequence": 2,
+    "occurredAt": "2026-07-20T06:01:00.000Z",
+    "idempotencyKey": "run_01:2:2",
+    "type": "VERIFICATION_RESULT",
+    "payload": {
+      "step": "V2",
+      "passed": false,
+      "failureCode": "VERIFY_SCOPE_VIOLATION",
+      "detail": { "violations": ["packages/other/src/pricing.ts"] }
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_02",
+    "attemptNo": 2,
+    "attemptSequence": 3,
+    "occurredAt": "2026-07-20T06:02:00.000Z",
+    "idempotencyKey": "run_01:2:3",
+    "type": "APPROVAL_EVENT",
+    "payload": { "status": "APPROVED", "reviewer": "liutianhao", "prUrl": "https://github.com/x/y/pull/1" }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_02",
+    "attemptNo": 2,
+    "attemptSequence": 4,
+    "occurredAt": "2026-07-20T06:02:05.000Z",
+    "idempotencyKey": "run_01:2:4",
+    "type": "BUDGET_UPDATE",
+    "payload": { "usedTokens": 23000, "usedSeconds": 180, "usedTurns": 6 }
+  }
+]

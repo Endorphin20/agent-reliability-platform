@@ -1,0 +1,910 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "MODEL_CALL"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "promptTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "completionTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "latencyMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "turn": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "model",
+            "promptTokens",
+            "completionTokens",
+            "latencyMs",
+            "turn"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "TOOL_CALL"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "toolCallId": {
+              "type": "string"
+            },
+            "tool": {
+              "type": "string"
+            },
+            "args": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "resultDigest": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "cached": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "toolCallId",
+            "tool",
+            "args",
+            "resultDigest",
+            "durationMs",
+            "cached"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "FILE_CHANGE"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "changeType": {
+              "type": "string",
+              "enum": [
+                "modify",
+                "create",
+                "delete"
+              ]
+            },
+            "diffStat": {
+              "type": "object",
+              "properties": {
+                "additions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "deletions": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "additions",
+                "deletions"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "path",
+            "changeType",
+            "diffStat"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "COMMAND_EXEC"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "exitCode": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "stdoutTail": {
+              "type": "string"
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "command",
+            "exitCode",
+            "stdoutTail",
+            "durationMs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "STATE_TRANSITION"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "entity": {
+              "type": "string",
+              "enum": [
+                "task",
+                "run",
+                "attempt"
+              ]
+            },
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "entity",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "CHECKPOINT_SAVED"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "checkpointId": {
+              "type": "string"
+            },
+            "usedTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "usedSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "checkpointId",
+            "usedTokens",
+            "usedSeconds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "FAILURE_DETECTED"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "failureCode": {
+              "type": "string",
+              "enum": [
+                "MODEL_RATE_LIMIT",
+                "MODEL_API_ERROR",
+                "MODEL_BAD_OUTPUT",
+                "TOOL_EXEC_ERROR",
+                "PATCH_APPLY_FAILED",
+                "SANDBOX_START_FAILED",
+                "SANDBOX_CRASHED",
+                "WORKER_LOST",
+                "BUDGET_TOKENS_EXCEEDED",
+                "BUDGET_TIME_EXCEEDED",
+                "BUDGET_TURNS_EXCEEDED",
+                "AGENT_STUCK",
+                "VERIFY_PATCH_MALFORMED",
+                "VERIFY_SCOPE_VIOLATION",
+                "VERIFY_STATIC_FAILED",
+                "VERIFY_TARGET_TESTS_FAILED",
+                "VERIFY_REGRESSION_FAILED",
+                "VERIFY_TEST_TAMPERING",
+                "HUMAN_REJECTED",
+                "CANCELLED_BY_USER"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "failureCode",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "RECOVERY_ACTION"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "RESUME",
+                "RESTART_ATTEMPT",
+                "ESCALATE_HUMAN",
+                "ABORT"
+              ]
+            },
+            "fromCheckpointId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "newAttemptNo": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "action",
+            "fromCheckpointId",
+            "newAttemptNo"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "VERIFICATION_RESULT"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "step": {
+              "type": "string",
+              "enum": [
+                "V1",
+                "V2",
+                "V3",
+                "V4",
+                "V5",
+                "V6"
+              ]
+            },
+            "passed": {
+              "type": "boolean"
+            },
+            "failureCode": {
+              "type": "string",
+              "enum": [
+                "MODEL_RATE_LIMIT",
+                "MODEL_API_ERROR",
+                "MODEL_BAD_OUTPUT",
+                "TOOL_EXEC_ERROR",
+                "PATCH_APPLY_FAILED",
+                "SANDBOX_START_FAILED",
+                "SANDBOX_CRASHED",
+                "WORKER_LOST",
+                "BUDGET_TOKENS_EXCEEDED",
+                "BUDGET_TIME_EXCEEDED",
+                "BUDGET_TURNS_EXCEEDED",
+                "AGENT_STUCK",
+                "VERIFY_PATCH_MALFORMED",
+                "VERIFY_SCOPE_VIOLATION",
+                "VERIFY_STATIC_FAILED",
+                "VERIFY_TARGET_TESTS_FAILED",
+                "VERIFY_REGRESSION_FAILED",
+                "VERIFY_TEST_TAMPERING",
+                "HUMAN_REJECTED",
+                "CANCELLED_BY_USER"
+              ]
+            },
+            "detail": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "step",
+            "passed",
+            "detail"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "APPROVAL_EVENT"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED"
+              ]
+            },
+            "reviewer": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "prUrl": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "status",
+            "reviewer",
+            "prUrl"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptNo": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "attemptSequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "const": "BUDGET_UPDATE"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "usedTokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "usedSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "usedTurns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "usedTokens",
+            "usedSeconds",
+            "usedTurns"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "runId",
+        "attemptId",
+        "attemptNo",
+        "attemptSequence",
+        "occurredAt",
+        "idempotencyKey",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

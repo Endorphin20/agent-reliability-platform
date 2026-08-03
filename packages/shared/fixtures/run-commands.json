@@ -1,0 +1,120 @@
+[
+  {
+    "commandId": "cmd:run_01:START_RUN:1",
+    "type": "START_RUN",
+    "runId": "run_01",
+    "attemptNo": 1,
+    "agentKind": "SELF_LANGGRAPH",
+    "repo": {
+      "path": "/Users/liutianhao/Coding/agent-reliability/agent-fixture-repo",
+      "baseCommit": "0000000000000000000000000000000000000000"
+    },
+    "taskSpec": {
+      "fixtureId": "ts-logic-001",
+      "description": "修复购物车阶梯折扣计算错误",
+      "allowedPaths": [
+        "packages/ts-logic-001/src/**"
+      ],
+      "staticCheck": [
+        "npm run typecheck"
+      ],
+      "failToPass": [
+        "npm run test:target"
+      ],
+      "passToPass": [
+        "npm test"
+      ],
+      "workdir": "packages/ts-logic-001",
+      "acceptanceCriteria": [
+        "折扣阶梯边界（99/100/500）计算正确",
+        "不修改测试文件，只改动 src 下允许路径"
+      ]
+    },
+    "budget": {
+      "tokens": 200000,
+      "seconds": 900,
+      "turns": 30,
+      "remainingTokens": 200000,
+      "remainingSeconds": 900
+    }
+  },
+  {
+    "commandId": "cmd:run_01:RESUME_RUN:2",
+    "type": "RESUME_RUN",
+    "runId": "run_01",
+    "attemptNo": 2,
+    "agentKind": "SELF_LANGGRAPH",
+    "repo": {
+      "path": "/Users/liutianhao/Coding/agent-reliability/agent-fixture-repo",
+      "baseCommit": "0000000000000000000000000000000000000000"
+    },
+    "taskSpec": {
+      "fixtureId": "ts-logic-001",
+      "description": "修复购物车阶梯折扣计算错误",
+      "allowedPaths": [
+        "packages/ts-logic-001/src/**"
+      ],
+      "staticCheck": [
+        "npm run typecheck"
+      ],
+      "failToPass": [
+        "npm run test:target"
+      ],
+      "passToPass": [
+        "npm test"
+      ],
+      "workdir": "packages/ts-logic-001",
+      "acceptanceCriteria": [
+        "折扣阶梯边界（99/100/500）计算正确",
+        "不修改测试文件，只改动 src 下允许路径"
+      ]
+    },
+    "budget": {
+      "tokens": 200000,
+      "seconds": 900,
+      "turns": 30,
+      "remainingTokens": 184600,
+      "remainingSeconds": 805
+    },
+    "checkpointId": "ckpt_01"
+  },
+  {
+    "commandId": "cmd:run_01:CANCEL_RUN:2",
+    "type": "CANCEL_RUN",
+    "runId": "run_01",
+    "attemptNo": 2,
+    "agentKind": "SELF_LANGGRAPH",
+    "repo": {
+      "path": "/Users/liutianhao/Coding/agent-reliability/agent-fixture-repo",
+      "baseCommit": "0000000000000000000000000000000000000000"
+    },
+    "taskSpec": {
+      "fixtureId": "ts-logic-001",
+      "description": "修复购物车阶梯折扣计算错误",
+      "allowedPaths": [
+        "packages/ts-logic-001/src/**"
+      ],
+      "staticCheck": [
+        "npm run typecheck"
+      ],
+      "failToPass": [
+        "npm run test:target"
+      ],
+      "passToPass": [
+        "npm test"
+      ],
+      "workdir": "packages/ts-logic-001",
+      "acceptanceCriteria": [
+        "折扣阶梯边界（99/100/500）计算正确",
+        "不修改测试文件，只改动 src 下允许路径"
+      ]
+    },
+    "budget": {
+      "tokens": 200000,
+      "seconds": 900,
+      "turns": 30,
+      "remainingTokens": 184600,
+      "remainingSeconds": 805
+    }
+  }
+]

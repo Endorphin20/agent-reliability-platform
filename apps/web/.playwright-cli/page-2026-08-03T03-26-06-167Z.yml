@@ -1,0 +1,354 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "Agent Reliability Platform" [ref=e4] [cursor=pointer]:
+        - /url: /tasks
+      - navigation [ref=e5]:
+        - link "任务" [ref=e6] [cursor=pointer]:
+          - /url: /tasks
+        - link "评测对比" [ref=e7] [cursor=pointer]:
+          - /url: /evaluations
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - heading "修复任务" [level=1] [ref=e12]
+          - paragraph [ref=e13]: 创建任务后由 Agent 在 Docker 沙箱内诊断修复，经 V1–V6 门禁与 LLM Judge 后进入人工审批
+        - button "新建任务" [ref=e14]
+      - table [ref=e16]:
+        - rowgroup [ref=e17]:
+          - row [ref=e18]:
+            - columnheader "任务" [ref=e19]
+            - columnheader "状态" [ref=e20]
+            - columnheader "Runs" [ref=e21]
+            - columnheader "审批 / PR" [ref=e22]
+            - columnheader "创建时间" [ref=e23]
+        - rowgroup [ref=e24]:
+          - row [ref=e25]:
+            - cell "实现时长人性化函数 format_duration py-feature-001" [ref=e26]:
+              - generic [ref=e27]: 实现时长人性化函数 format_duration
+              - generic [ref=e28]: py-feature-001
+            - cell "RUNNING" [ref=e29]
+            - cell [ref=e31]:
+              - link "自研 LangGraph RUNNING" [ref=e33] [cursor=pointer]:
+                - /url: /runs/cmsco2khw005g9khhed8501d3
+                - generic [ref=e34]: 自研 LangGraph
+                - generic [ref=e35]: RUNNING
+            - cell "—" [ref=e36]
+            - cell "2026/8/3 11:25:40" [ref=e37]
+          - row [ref=e38]:
+            - cell "修复目录迁移后失效的 pytest 导入路径配置 py-dep-001" [ref=e39]:
+              - generic [ref=e40]: 修复目录迁移后失效的 pytest 导入路径配置
+              - generic [ref=e41]: py-dep-001
+            - cell "AWAITING_APPROVAL" [ref=e42]
+            - cell [ref=e44]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e46] [cursor=pointer]:
+                - /url: /runs/cmsco1dyl004u9khhcoqv8uml
+                - generic [ref=e47]: 自研 LangGraph
+                - generic [ref=e48]: SUCCEEDED
+            - cell [ref=e49]:
+              - link "待审批 →" [ref=e50] [cursor=pointer]:
+                - /url: /runs/cmsco1dyl004u9khhcoqv8uml/review
+            - cell "2026/8/3 11:24:45" [ref=e51]
+          - row [ref=e52]:
+            - cell "适配 kv 存储基础库 v2 的接口变更 py-api-001" [ref=e53]:
+              - generic [ref=e54]: 适配 kv 存储基础库 v2 的接口变更
+              - generic [ref=e55]: py-api-001
+            - cell "RUNNING" [ref=e56]
+            - cell [ref=e58]:
+              - link "自研 LangGraph INTERRUPTED" [ref=e60] [cursor=pointer]:
+                - /url: /runs/cmscnu6z5003u9khhrkjpadml
+                - generic [ref=e61]: 自研 LangGraph
+                - generic [ref=e62]: INTERRUPTED
+            - cell "—" [ref=e63]
+            - cell "2026/8/3 11:19:09" [ref=e64]
+          - row [ref=e65]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e66]:
+              - generic [ref=e67]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e68]: py-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e69]
+            - cell [ref=e71]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e73] [cursor=pointer]:
+                - /url: /runs/cmscns5g000359khhf0mmltwr
+                - generic [ref=e74]: 自研 LangGraph
+                - generic [ref=e75]: SUCCEEDED
+            - cell [ref=e76]:
+              - link "待审批 →" [ref=e77] [cursor=pointer]:
+                - /url: /runs/cmscns5g000359khhf0mmltwr/review
+            - cell "2026/8/3 11:17:34" [ref=e78]
+          - row [ref=e79]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e80]:
+              - generic [ref=e81]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e82]: py-logic-001
+            - cell "RUNNING" [ref=e83]
+            - cell [ref=e85]:
+              - link "自研 LangGraph INTERRUPTED" [ref=e87] [cursor=pointer]:
+                - /url: /runs/cmscnom1j002m9khhlki4wu6k
+                - generic [ref=e88]: 自研 LangGraph
+                - generic [ref=e89]: INTERRUPTED
+            - cell "—" [ref=e90]
+            - cell "2026/8/3 11:14:49" [ref=e91]
+          - row [ref=e92]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e93]:
+              - generic [ref=e94]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e95]: py-logic-001
+            - cell "RUNNING" [ref=e96]
+            - cell [ref=e98]:
+              - link "自研 LangGraph INTERRUPTED" [ref=e100] [cursor=pointer]:
+                - /url: /runs/cmscnbzsd001j9khhxj3n2479
+                - generic [ref=e101]: 自研 LangGraph
+                - generic [ref=e102]: INTERRUPTED
+            - cell "—" [ref=e103]
+            - cell "2026/8/3 11:05:00" [ref=e104]
+          - row [ref=e105]:
+            - cell "修复目录迁移后失效的 pytest 导入路径配置 py-dep-001" [ref=e106]:
+              - generic [ref=e107]: 修复目录迁移后失效的 pytest 导入路径配置
+              - generic [ref=e108]: py-dep-001
+            - cell "AWAITING_APPROVAL" [ref=e109]
+            - cell [ref=e111]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e113] [cursor=pointer]:
+                - /url: /runs/cmscna8v4000u9khh6n1tpmf5
+                - generic [ref=e114]: 自研 LangGraph
+                - generic [ref=e115]: SUCCEEDED
+            - cell [ref=e116]:
+              - link "待审批 →" [ref=e117] [cursor=pointer]:
+                - /url: /runs/cmscna8v4000u9khh6n1tpmf5/review
+            - cell "2026/8/3 11:03:38" [ref=e118]
+          - row [ref=e119]:
+            - cell "适配 kv 存储基础库 v2 的接口变更 py-api-001" [ref=e120]:
+              - generic [ref=e121]: 适配 kv 存储基础库 v2 的接口变更
+              - generic [ref=e122]: py-api-001
+            - cell "AWAITING_APPROVAL" [ref=e123]
+            - cell [ref=e125]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e127] [cursor=pointer]:
+                - /url: /runs/cmscn70v100029khhvsxyek2a
+                - generic [ref=e128]: 自研 LangGraph
+                - generic [ref=e129]: SUCCEEDED
+            - cell [ref=e130]:
+              - link "待审批 →" [ref=e131] [cursor=pointer]:
+                - /url: /runs/cmscn70v100029khhvsxyek2a/review
+            - cell "2026/8/3 11:01:08" [ref=e132]
+          - row [ref=e133]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e134]:
+              - generic [ref=e135]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e136]: py-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e137]
+            - cell [ref=e139]:
+              - link "mini-SWE SUCCEEDED" [ref=e141] [cursor=pointer]:
+                - /url: /runs/cmscmxiai0001gvhh3n9w8tts
+                - generic [ref=e142]: mini-SWE
+                - generic [ref=e143]: SUCCEEDED
+            - cell [ref=e144]:
+              - link "待审批 →" [ref=e145] [cursor=pointer]:
+                - /url: /runs/cmscmxiai0001gvhh3n9w8tts/review
+            - cell "2026/8/3 10:53:44" [ref=e146]
+          - row [ref=e147]:
+            - cell "修复购物车阶梯折扣计算错误 ts-logic-001" [ref=e148]:
+              - generic [ref=e149]: 修复购物车阶梯折扣计算错误
+              - generic [ref=e150]: ts-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e151]
+            - cell [ref=e153]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e155] [cursor=pointer]:
+                - /url: /runs/cmscmokm7000zoqhheznyggeu
+                - generic [ref=e156]: 自研 LangGraph
+                - generic [ref=e157]: SUCCEEDED
+            - cell [ref=e158]:
+              - link "待审批 →" [ref=e159] [cursor=pointer]:
+                - /url: /runs/cmscmokm7000zoqhheznyggeu/review
+            - cell "2026/8/3 10:46:47" [ref=e160]
+          - row [ref=e161]:
+            - cell "修复购物车阶梯折扣计算错误 ts-logic-001" [ref=e162]:
+              - generic [ref=e163]: 修复购物车阶梯折扣计算错误
+              - generic [ref=e164]: ts-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e165]
+            - cell [ref=e167]:
+              - link "mini-SWE SUCCEEDED" [ref=e169] [cursor=pointer]:
+                - /url: /runs/cmscmn7qv000moqhhcqszch3o
+                - generic [ref=e170]: mini-SWE
+                - generic [ref=e171]: SUCCEEDED
+            - cell [ref=e172]:
+              - link "待审批 →" [ref=e173] [cursor=pointer]:
+                - /url: /runs/cmscmn7qv000moqhhcqszch3o/review
+            - cell "2026/8/3 10:45:44" [ref=e174]
+          - row [ref=e175]:
+            - cell "实现时长人性化函数 format_duration py-feature-001" [ref=e176]:
+              - generic [ref=e177]: 实现时长人性化函数 format_duration
+              - generic [ref=e178]: py-feature-001
+            - cell "AWAITING_APPROVAL" [ref=e179]
+            - cell [ref=e181]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e183] [cursor=pointer]:
+                - /url: /runs/cmscmaxb30001oqhhdnfe1kat
+                - generic [ref=e184]: 自研 LangGraph
+                - generic [ref=e185]: SUCCEEDED
+            - cell [ref=e186]:
+              - link "待审批 →" [ref=e187] [cursor=pointer]:
+                - /url: /runs/cmscmaxb30001oqhhdnfe1kat/review
+            - cell "2026/8/3 10:36:10" [ref=e188]
+          - row [ref=e189]:
+            - cell "修复邮箱校验的连续点漏判并补回归测试 ts-test-001" [ref=e190]:
+              - generic [ref=e191]: 修复邮箱校验的连续点漏判并补回归测试
+              - generic [ref=e192]: ts-test-001
+            - cell "AWAITING_APPROVAL" [ref=e193]
+            - cell [ref=e195]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e197] [cursor=pointer]:
+                - /url: /runs/cmrt2bpmb000ve3hh2ie4kp1x
+                - generic [ref=e198]: 自研 LangGraph
+                - generic [ref=e199]: SUCCEEDED
+            - cell [ref=e200]:
+              - link "待审批 →" [ref=e201] [cursor=pointer]:
+                - /url: /runs/cmrt2bpmb000ve3hh2ie4kp1x/review
+            - cell "2026/7/20 18:09:17" [ref=e202]
+          - row [ref=e203]:
+            - cell "修复目录迁移后失效的 pytest 导入路径配置 py-dep-001" [ref=e204]:
+              - generic [ref=e205]: 修复目录迁移后失效的 pytest 导入路径配置
+              - generic [ref=e206]: py-dep-001
+            - cell "AWAITING_APPROVAL" [ref=e207]
+            - cell [ref=e209]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e211] [cursor=pointer]:
+                - /url: /runs/cmrt2ba9r000ge3hhpqh0thj1
+                - generic [ref=e212]: 自研 LangGraph
+                - generic [ref=e213]: SUCCEEDED
+            - cell [ref=e214]:
+              - link "待审批 →" [ref=e215] [cursor=pointer]:
+                - /url: /runs/cmrt2ba9r000ge3hhpqh0thj1/review
+            - cell "2026/7/20 18:08:58" [ref=e216]
+          - row [ref=e217]:
+            - cell "修复利息结算的取整口径（注意共享工具的语义） ts-trap-001" [ref=e218]:
+              - generic [ref=e219]: 修复利息结算的取整口径（注意共享工具的语义）
+              - generic [ref=e220]: ts-trap-001
+            - cell "AWAITING_APPROVAL" [ref=e221]
+            - cell [ref=e223]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e225] [cursor=pointer]:
+                - /url: /runs/cmrt2am7a0001e3hhful5jsmo
+                - generic [ref=e226]: 自研 LangGraph
+                - generic [ref=e227]: SUCCEEDED
+            - cell [ref=e228]:
+              - link "待审批 →" [ref=e229] [cursor=pointer]:
+                - /url: /runs/cmrt2am7a0001e3hhful5jsmo/review
+            - cell "2026/7/20 18:08:26" [ref=e230]
+          - row [ref=e231]:
+            - cell "修复购物车阶梯折扣计算错误 ts-logic-001" [ref=e232]:
+              - generic [ref=e233]: 修复购物车阶梯折扣计算错误
+              - generic [ref=e234]: ts-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e235]
+            - cell [ref=e237]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e239] [cursor=pointer]:
+                - /url: /runs/cmrsym8ek002apwhh9ndnc1rb
+                - generic [ref=e240]: 自研 LangGraph
+                - generic [ref=e241]: SUCCEEDED
+            - cell [ref=e242]:
+              - link "待审批 →" [ref=e243] [cursor=pointer]:
+                - /url: /runs/cmrsym8ek002apwhh9ndnc1rb/review
+            - cell "2026/7/20 16:25:30" [ref=e244]
+          - row [ref=e245]:
+            - cell "实现优惠券核销函数 applyCoupon ts-feature-001" [ref=e246]:
+              - generic [ref=e247]: 实现优惠券核销函数 applyCoupon
+              - generic [ref=e248]: ts-feature-001
+            - cell "AWAITING_APPROVAL" [ref=e249]
+            - cell [ref=e251]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e253] [cursor=pointer]:
+                - /url: /runs/cmrsyh2lq001spwhhnw518oxp
+                - generic [ref=e254]: 自研 LangGraph
+                - generic [ref=e255]: SUCCEEDED
+            - cell [ref=e256]:
+              - link "待审批 →" [ref=e257] [cursor=pointer]:
+                - /url: /runs/cmrsyh2lq001spwhhnw518oxp/review
+            - cell "2026/7/20 16:21:29" [ref=e258]
+          - row [ref=e259]:
+            - cell "修复内存分页的偏移与总页数计算 ts-logic-002" [ref=e260]:
+              - generic [ref=e261]: 修复内存分页的偏移与总页数计算
+              - generic [ref=e262]: ts-logic-002
+            - cell "AWAITING_APPROVAL" [ref=e263]
+            - cell [ref=e265]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e267] [cursor=pointer]:
+                - /url: /runs/cmrsyd5yl001apwhh2srecmh7
+                - generic [ref=e268]: 自研 LangGraph
+                - generic [ref=e269]: SUCCEEDED
+            - cell [ref=e270]:
+              - link "待审批 →" [ref=e271] [cursor=pointer]:
+                - /url: /runs/cmrsyd5yl001apwhh2srecmh7/review
+            - cell "2026/7/20 16:18:27" [ref=e272]
+          - row [ref=e273]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e274]:
+              - generic [ref=e275]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e276]: py-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e277]
+            - cell [ref=e279]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e281] [cursor=pointer]:
+                - /url: /runs/cmrsyb7ar000vpwhh1f5idhsm
+                - generic [ref=e282]: 自研 LangGraph
+                - generic [ref=e283]: SUCCEEDED
+            - cell [ref=e284]:
+              - link "待审批 →" [ref=e285] [cursor=pointer]:
+                - /url: /runs/cmrsyb7ar000vpwhh1f5idhsm/review
+            - cell "2026/7/20 16:16:55" [ref=e286]
+          - row [ref=e287]:
+            - cell "修复会议时段重叠判定与合并的边界语义 py-logic-001" [ref=e288]:
+              - generic [ref=e289]: 修复会议时段重叠判定与合并的边界语义
+              - generic [ref=e290]: py-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e291]
+            - cell [ref=e293]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e295] [cursor=pointer]:
+                - /url: /runs/cmrsyalwc000gpwhh3fa13wkk
+                - generic [ref=e296]: 自研 LangGraph
+                - generic [ref=e297]: SUCCEEDED
+            - cell [ref=e298]:
+              - link "待审批 →" [ref=e299] [cursor=pointer]:
+                - /url: /runs/cmrsyalwc000gpwhh3fa13wkk/review
+            - cell "2026/7/20 16:16:27" [ref=e300]
+          - row [ref=e301]:
+            - cell "修复购物车阶梯折扣计算错误 ts-logic-001" [ref=e302]:
+              - generic [ref=e303]: 修复购物车阶梯折扣计算错误
+              - generic [ref=e304]: ts-logic-001
+            - cell "AWAITING_APPROVAL" [ref=e305]
+            - cell [ref=e307]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e309] [cursor=pointer]:
+                - /url: /runs/cmrsy6mx90001pwhhh4fxk02t
+                - generic [ref=e310]: 自研 LangGraph
+                - generic [ref=e311]: SUCCEEDED
+            - cell [ref=e312]:
+              - link "待审批 →" [ref=e313] [cursor=pointer]:
+                - /url: /runs/cmrsy6mx90001pwhhh4fxk02t/review
+            - cell "2026/7/20 16:13:22" [ref=e314]
+          - row [ref=e315]:
+            - cell "修复购物车阶梯折扣计算错误 ts-logic-001" [ref=e316]:
+              - generic [ref=e317]: 修复购物车阶梯折扣计算错误
+              - generic [ref=e318]: ts-logic-001
+            - cell "RUNNING" [ref=e319]
+            - cell [ref=e321]:
+              - link "自研 LangGraph INTERRUPTED" [ref=e323] [cursor=pointer]:
+                - /url: /runs/cmrsy48za0001j3hhu8z3hz5l
+                - generic [ref=e324]: 自研 LangGraph
+                - generic [ref=e325]: INTERRUPTED
+            - cell "—" [ref=e326]
+            - cell "2026/7/20 16:11:31" [ref=e327]
+          - row [ref=e328]:
+            - cell "空转闭环假任务 fake" [ref=e329]:
+              - generic [ref=e330]: 空转闭环假任务
+              - generic [ref=e331]: fake
+            - cell "AWAITING_APPROVAL" [ref=e332]
+            - cell [ref=e334]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e336] [cursor=pointer]:
+                - /url: /runs/cmrsw2zoy0008tphhf8hphgw5
+                - generic [ref=e337]: 自研 LangGraph
+                - generic [ref=e338]: SUCCEEDED
+            - cell [ref=e339]:
+              - link "待审批 →" [ref=e340] [cursor=pointer]:
+                - /url: /runs/cmrsw2zoy0008tphhf8hphgw5/review
+            - cell "2026/7/20 15:14:33" [ref=e341]
+          - row [ref=e342]:
+            - cell "空转闭环假任务 fake" [ref=e343]:
+              - generic [ref=e344]: 空转闭环假任务
+              - generic [ref=e345]: fake
+            - cell "PR_CREATED" [ref=e346]
+            - cell [ref=e348]:
+              - link "自研 LangGraph SUCCEEDED" [ref=e350] [cursor=pointer]:
+                - /url: /runs/cmrsw1fyu0003tphhstt9z9ni
+                - generic [ref=e351]: 自研 LangGraph
+                - generic [ref=e352]: SUCCEEDED
+            - cell [ref=e353]:
+              - link "PR ↗" [ref=e354] [cursor=pointer]:
+                - /url: https://github.example.local/mock/pulls/cmrsw1fyr0002tphhjes6qpxg
+            - cell "2026/7/20 15:13:21" [ref=e355]
+  - button "Open Next.js Dev Tools" [ref=e361] [cursor=pointer]
+  - alert [ref=e365]

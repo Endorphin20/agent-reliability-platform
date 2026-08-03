@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+.env
+.e2e-logs/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+coverage/
+.DS_Store
+
+# 评测数据集（可由 scripts/swebench_import.py 重新下载生成）
+data/

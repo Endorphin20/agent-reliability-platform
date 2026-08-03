@@ -1,0 +1,32 @@
+{
+  "name": "@arp/shared",
+  "version": "0.1.0",
+  "description": "Shared data contracts: TraceEvent / RunCommand schemas and enums",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "gen:schemas": "tsx scripts/gen-schemas.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "commandId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "START_RUN",
+        "RESUME_RUN",
+        "CANCEL_RUN"
+      ]
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attemptNo": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "agentKind": {
+      "type": "string",
+      "enum": [
+        "SELF_LANGGRAPH",
+        "MINI_SWE"
+      ]
+    },
+    "repo": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "baseCommit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "baseCommit"
+      ],
+      "additionalProperties": false
+    },
+    "taskSpec": {
+      "type": "object",
+      "properties": {
+        "fixtureId": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "workdir": {
+          "type": "string"
+        },
+        "allowedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "staticCheck": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failToPass": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "passToPass": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "fixtureId",
+        "description",
+        "workdir",
+        "allowedPaths",
+        "staticCheck",
+        "failToPass",
+        "passToPass",
+        "acceptanceCriteria"
+      ],
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "seconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "turns": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "remainingTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "remainingSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "tokens",
+        "seconds",
+        "turns",
+        "remainingTokens",
+        "remainingSeconds"
+      ],
+      "additionalProperties": false
+    },
+    "checkpointId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "commandId",
+    "type",
+    "runId",
+    "attemptNo",
+    "agentKind",
+    "repo",
+    "taskSpec",
+    "budget"
+  ],
+  "additionalProperties": false
+}
