@@ -10,7 +10,9 @@ RUN apt-get update \
     && ln -sf /usr/bin/python3.11 /usr/local/bin/python \
     && corepack enable && corepack prepare pnpm@latest --activate \
     && npm install -g typescript@5.6 \
-    && python3 -m pip install --break-system-packages pytest==8.3.3
+    && python3 -m pip install --break-system-packages pytest==8.3.3 \
+    # SWE-bench 子集（django/sympy 从源码跑测试）的最小运行依赖
+    && python3 -m pip install --break-system-packages asgiref==3.8.1 sqlparse==0.5.3 mpmath==1.3.0
 
 # uv 用于 dep_config 任务的依赖安装（allowlist 网络或缓存镜像）
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/

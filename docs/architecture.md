@@ -150,13 +150,37 @@ sequenceDiagram
   acceptance_criteria 逐条 0–5 打分，结果进审批页辅助人工决策；
 - **人工审批**：AWAITING_APPROVAL -> APPROVED 才触发 PR 创建（dev 为 mock URL）。
 
-## 5. 双端契约
+## 5. SWE-bench Lite 子集接入
+
+外部基准与自建 fixture 走同一条执行/验证链路，仅扩展两个字段：
+
+- `repo_path`：fixture 可指向任意本地上游仓库克隆（django/sympy），沙箱
+  `git clone --local` + checkout 实例的 `base_commit`，与 fixture 仓库同机制；
+- `taskSpec.testPatch`：SWE-bench 的 FAIL_TO_PASS 测试来自基准自带的
+  test_patch（对 Agent **不可见**，防作弊）。Verifier 在 V1 捕获 Agent diff、
+  V2/V6 按 Agent 变更判定之后才应用 test_patch，跑完 V3–V5 立即回滚——
+  验证失败回炉时 Agent 仍看不到基准测试内容，V6 下轮也不会误报。
+
+选型与判定协议：
+
+- 子集取 django(≥4.2) + sympy(≥1.11) 共 12 个近期实例：纯 Python、零编译
+  依赖，可在统一 arp-sandbox 镜像内**离线**跑测试，绕开官方每实例 ~3GB
+  docker 镜像在 arm64 上的不可行性；镜像只需补 asgiref/sqlparse/mpmath；
+- 测试条目转可执行命令：django `"test_x (a.b.C)"` → `runtests.py` label，
+  sympy 裸函数名 + test_patch 中的测试文件 → pytest node id；unittest
+  docstring 形式条目无法转 label，跳过并记录在 fixture 元数据；
+- 入集资格 = 金标验证三步全过（`scripts/swebench_validate.py`）：
+  修复前 FAIL_TO_PASS 必须失败 → 应用官方 gold patch 后必须通过 →
+  PASS_TO_PASS 必须通过。环境与基准假设不符的实例直接弃用（初选 14 个，
+  2 个 sympy 实例因 `test_mul_div` 在基线即失败被淘汰）。
+
+## 6. 双端契约
 
 `packages/shared` 同时产出 zod schema（TS）与 JSON Schema（Python 侧 pydantic 校验），
 同一批 JSON fixture（run-commands / trace-events）被两端契约测试共同校验，
 枚举表做集合比对，保证控制面与执行面的数据契约不漂移。
 
-## 6. 裁剪边界（未生产化项）
+## 7. 裁剪边界（未生产化项）
 
 | 裁剪项 | 现状 | 生产化方向 |
 | --- | --- | --- |

@@ -8,6 +8,8 @@ uv run arp-eval run --suite fixture-12 --agent mini-swe                         
 uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox              # 批次3 故障+恢复
 uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox --no-recovery # 批次4 故障+禁恢复（消融）
 uv run arp-eval run --suite fixture-12 --agent self --fault-inject kill-sandbox --feedback raw # 批次5 原始反馈（消融）
+uv run arp-eval run --suite swebench --agent self                                             # 批次6 SWE-bench 子集：自研
+uv run arp-eval run --suite swebench --agent mini-swe                                         # 批次7 SWE-bench 子集：mini-SWE
 uv run arp-eval report                                                                        # 汇总
 ```
 
@@ -15,6 +17,7 @@ uv run arp-eval report                                                          
 
 - 任务集：`agent-fixture-repo` 12 个金标 fixture（6 个 Python + 6 个 TypeScript，
   覆盖逻辑 bug / API 适配 / 依赖迁移 / 特性实现 / 测试修复 / 陷阱任务）；
+  实验四另用 SWE-bench Lite 12 实例子集（接入设计见 docs/architecture.md §5）；
 - Agent 模型 `gpt-5.5`，Judge 模型 `claude-opus-4-6`（独立上下文，按 acceptance_criteria 逐条 0–5 分）；
 - 预算：200k tokens / 900s / 30 轮 per run；
 - 成本为按公开定价近似的估算值，用于批次间相对比较；
@@ -73,6 +76,44 @@ LangGraph checkpoint 续跑 + completedToolCalls 幂等缓存（TOOL_CALL 事件
 结论：两种反馈都能恢复成功（checkpoint 保留了完整对话状态，反馈只是补充信号），
 但结构化反馈（失败分类 + 失败步骤 + 定位建议）比裸贴原始输出**省约 19% tokens /
 24% 成本**——原始输出迫使模型自行重新解析失败上下文，多花一轮左右的往返。
+
+## 实验四：SWE-bench Lite 12 实例子集（批次 6 vs 7，无故障注入）
+
+任务集：django(≥4.2) 8 实例 + sympy(≥1.11) 4 实例，全部通过金标验证
+（`scripts/swebench_validate.py`：修复前 FAIL_TO_PASS 必失败、官方 gold patch
+后必通过）。基准 test_patch 对 Agent 不可见，由 Verifier 在跑测试前应用、
+跑完回滚。预算放宽至 400k tokens / 2400s / 50 轮 per run。
+
+| 指标 | 自研 LangGraph | mini-SWE-agent |
+| --- | --- | --- |
+| 解决率 | 6/12 (50%) | **9/12 (75%)** |
+| 首试成功率 | 50% | 67%（16046 回炉反馈后二次修复成功） |
+| 越界改动数 | 0 | 0 |
+| 均值 tokens | 230,311 | 104,241 |
+| 均值耗时 (s) | 189 | 126 |
+| 总成本 (USD) | $4.52 | $2.43 |
+| Judge 均分（resolved runs） | 4.94 | 4.85 |
+
+结论与讨论：
+
+1. **真实基准把两个 Agent 拉开了**。自建 fixture 上双方都是 12/12，
+   SWE-bench 子集上 mini-SWE 75% vs 自研 50%——mini-SWE 的纯 bash 循环
+   （grep/sed/自由探索）在 django 这类大仓库里定位代码明显更高效；自研
+   Agent 的结构化工具集（read_file 全文回读 + 固定 search_code）在大仓库
+   探索上开销大、容易烧满预算（6 个失败 run 中 5 个耗尽约 400k tokens）。
+   这印证了实验一的推断："可靠性税"在简单任务上只体现为 tokens 差价，
+   在难任务上会直接吃掉解决率。
+2. **两边共同失败的实例**（15819 / 23191 / 24909）问题陈述都偏含糊或涉及
+   跨模块行为，属于子集里的真难题；15814 / 15851 / 16873 为自研独败，
+   16046 为 mini-SWE 靠验证失败反馈回炉救回——平台的结构化反馈链路对
+   attempt-restart 型 Agent 同样有效。
+3. **诚实口径**：本子集只有 12 个经过筛选的近期实例（纯 Python、零编译
+   依赖、金标可复现），解决率**不可与官方 SWE-bench Lite 排行榜横比**
+   （官方 300 实例含大量老版本环境与更难仓库）。子集的价值在于：
+   (a) 证明平台的执行/验证/评测链路能承接外部真实基准；
+   (b) 提供比自建 fixture 更有区分度的 A/B 对比信号。
+4. 两批次越界改动均为 0：V6 测试防篡改 + test_patch 不可见的组合下，
+   24 个 run 没有出现改测试或碰基准测试文件的作弊行为。
 
 ## 恢复粒度分组说明（IM-06）
 
