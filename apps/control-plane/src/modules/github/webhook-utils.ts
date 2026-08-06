@@ -14,6 +14,14 @@ export function verifyWebhookSignature(
   return timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
 }
 
+/** 从 issue/PR 的 html_url 解析出仓库与编号（状态回写用）。 */
+export function parseIssueRef(url: string | null | undefined): { repo: string; number: number } | null {
+  if (!url) return null;
+  const match = url.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:issues|pull)\/(\d+)/);
+  if (!match) return null;
+  return { repo: match[1], number: Number(match[2]) };
+}
+
 /** issue 评论里的触发命令：/arp run <fixtureId> [agentKind] */
 export function parseRunCommand(
   comment: string,

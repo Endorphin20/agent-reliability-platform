@@ -35,6 +35,10 @@ export class ApprovalService {
         }),
         this.prisma.task.update({ where: { id: approval.taskId }, data: { status: 'REJECTED' } }),
       ]);
+      await this.github.commentOnIssue(
+        approval.task.sourceRef,
+        `补丁已通过自动验证，但人工审批被拒绝（reviewer: ${reviewer ?? 'anonymous'}），不会创建 PR。`,
+      );
       return { approvalId, status: 'REJECTED' as const };
     }
 
@@ -83,6 +87,11 @@ export class ApprovalService {
           data: { status: 'PR_CREATED' },
         }),
       ]);
+      // 状态回写：issue 触发的任务把 PR 链接送回发起处（尽力而为，见 GithubService）
+      await this.github.commentOnIssue(
+        approval.task.sourceRef,
+        `自动修复完成，已通过 V1–V6 验证与人工审批。PR: ${pr.url}`,
+      );
       return { approvalId, status: 'APPROVED' as const, prUrl: pr.url };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -94,6 +103,10 @@ export class ApprovalService {
           data: { status: 'PR_FAILED' },
         }),
       ]);
+      await this.github.commentOnIssue(
+        approval.task.sourceRef,
+        `补丁已通过验证与审批，但 PR 创建失败（可在平台重试）：${message.slice(0, 300)}`,
+      );
       return { approvalId, status: 'APPROVED' as const, prUrl: null, prError: message };
     }
   }

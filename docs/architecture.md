@@ -152,7 +152,9 @@ sequenceDiagram
   时走真实流程：本地检出 fixture 仓库 -> `agent-fix/<taskId>` 分支应用补丁 ->
   push -> REST 建 PR（幂等：分支 force push，422 复用既有 PR）；入站为
   `POST /api/github/webhook`，HMAC-SHA256 验签后 issue 评论 `/arp run <fixtureId>`
-  直接触发任务，形成 issue -> 修复 -> 审批 -> PR 的完整闭环。
+  直接触发任务，形成 issue -> 修复 -> 审批 -> PR 的完整闭环；三个终态
+  （PR 建成 / PR 失败 / 审批拒绝）都会回写评论到来源 issue（尽力而为，
+  回写失败只记日志不影响主流程）。
 
 ## 5. SWE-bench Lite 子集接入
 
@@ -191,6 +193,6 @@ sequenceDiagram
 | 鉴权/多租户 | 无鉴权，单 default project | OIDC + RBAC + project 隔离 |
 | 队列 | Redis List + Outbox 轮询 | Kafka/NATS，消费组扩展 |
 | worker 扩展 | 多 worker 并发/租约接管已实测（实验六），未做吞吐压测 | 容量规划 + 自动扩缩 |
-| GitHub 集成 | PAT 出站真实建 PR + webhook 验签触发任务已实装 | App 安装流 + delivery id 去重 + 状态回写 |
+| GitHub 集成 | PAT 出站真实建 PR + webhook 验签触发任务 + issue 状态回写已实装 | App 安装流 + delivery id 去重 |
 | OTel 导出 | compose 预留 jaeger profile | TraceEvent -> OTLP 双写 |
 | 沙箱加固 | Docker 默认隔离 | gVisor/Firecracker、seccomp 白名单 |

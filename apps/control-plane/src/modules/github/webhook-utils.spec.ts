@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { parseRunCommand, verifyWebhookSignature } from './webhook-utils';
+import { parseIssueRef, parseRunCommand, verifyWebhookSignature } from './webhook-utils';
 
 describe('verifyWebhookSignature', () => {
   const secret = 's3cret';
@@ -24,6 +24,23 @@ describe('verifyWebhookSignature', () => {
     expect(verifyWebhookSignature(secret, body, undefined)).toBe(false);
     expect(verifyWebhookSignature(secret, body, 'sha1=abc')).toBe(false);
     expect(verifyWebhookSignature(secret, body, 'sha256=zzzz')).toBe(false);
+  });
+});
+
+describe('parseIssueRef', () => {
+  it('解析 issue URL', () => {
+    expect(parseIssueRef('https://github.com/o/r/issues/12')).toEqual({ repo: 'o/r', number: 12 });
+  });
+
+  it('解析 PR URL（issue 评论 API 对 PR 同样适用）', () => {
+    expect(parseIssueRef('https://github.com/o/r/pull/3')).toEqual({ repo: 'o/r', number: 3 });
+  });
+
+  it('拒绝非 GitHub 或缺编号的 URL 与空值', () => {
+    expect(parseIssueRef('https://gitlab.com/o/r/issues/1')).toBeNull();
+    expect(parseIssueRef('https://github.com/o/r')).toBeNull();
+    expect(parseIssueRef(null)).toBeNull();
+    expect(parseIssueRef(undefined)).toBeNull();
   });
 });
 
