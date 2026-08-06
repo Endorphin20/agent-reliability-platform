@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node:
+    name: TS 单测 + 契约 schema 漂移检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma client 生成（jest 依赖生成产物）
+        run: pnpm --filter control-plane exec prisma generate
+      - name: 构建 shared
+        run: pnpm --filter @arp/shared build
+      - name: 契约 JSON schema 漂移检查（zod 改了必须重新生成并提交）
+        run: |
+          pnpm --filter @arp/shared gen:schemas
+          git diff --exit-code packages/shared/schemas/
+      - name: shared 契约测试
+        run: pnpm --filter @arp/shared test
+      - name: control-plane 单测（Policy Engine / 状态机）
+        run: pnpm --filter control-plane test
+
+  python:
+    name: Python 单测 + 沙箱集成测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/agent-runtime/uv.lock
+      - name: 依赖同步
+        working-directory: apps/agent-runtime
+        run: uv sync --frozen
+      - name: 构建沙箱镜像（缺镜像时 test_sandbox 会整组 skip，构建后才是真跑）
+        run: docker build -t arp-sandbox:latest infra/sandbox
+      - name: pytest（含恢复时序与沙箱隔离测试）
+        working-directory: apps/agent-runtime
+        run: uv run python -m pytest -q

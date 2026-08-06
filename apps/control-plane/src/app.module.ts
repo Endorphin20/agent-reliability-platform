@@ -11,6 +11,7 @@ import { SseController } from './modules/events/sse.controller';
 import { TraceEventIngestor } from './modules/events/trace-event-ingestor';
 import { FixtureController } from './modules/fixture/fixture.controller';
 import { FixtureRegistry } from './modules/fixture/fixture-registry';
+import { GithubWebhookController } from './modules/github/github.controller';
 import { GithubService } from './modules/github/github.service';
 import { HealthController } from './modules/health/health.controller';
 import { InternalController } from './modules/internal/internal.controller';
@@ -28,6 +29,7 @@ import { TaskController } from './modules/task/task.controller';
     InternalController,
     FixtureController,
     EvaluationController,
+    GithubWebhookController,
   ],
   providers: [
     PrismaService,

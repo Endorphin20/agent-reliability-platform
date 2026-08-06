@@ -118,7 +118,7 @@ class VerifierPipeline:
                 return self._record(step, False, failure_code, {
                     "command": command,
                     "exitCode": exec_result.exit_code,
-                    "stdoutTail": exec_result.stdout[-3000:],
+                    "stdoutTail": exec_result.combined[-3000:],
                 }, started)
         return self._record(step, True, None, {"commands": commands}, started)
 

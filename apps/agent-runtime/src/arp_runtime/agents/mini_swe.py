@@ -111,7 +111,7 @@ class SandboxEnvironment:
             "toolCallId": action.get("tool_call_id") or f"mini-{self.emitter.sequence + 1}",
             "tool": "bash",
             "args": {"command": command[:1000]},
-            "resultDigest": _digest(result.stdout),
+            "resultDigest": _digest(result.combined),
             "durationMs": duration_ms,
             "cached": False,
         })
@@ -119,9 +119,10 @@ class SandboxEnvironment:
             "command": command[:1000],
             "exitCode": result.exit_code,
             "stdoutTail": result.stdout[-2000:],
+            **({"stderrTail": result.stderr[-2000:]} if result.stderr else {}),
             "durationMs": duration_ms,
         })
-        output = {"output": result.stdout, "returncode": result.exit_code, "exception_info": ""}
+        output = {"output": result.combined, "returncode": result.exit_code, "exception_info": ""}
         lines = result.stdout.lstrip().splitlines(keepends=True)
         if lines and lines[0].strip() == "COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT" and result.exit_code == 0:
             submission = "".join(lines[1:])

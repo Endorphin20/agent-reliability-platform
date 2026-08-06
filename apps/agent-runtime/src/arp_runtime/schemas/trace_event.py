@@ -54,6 +54,8 @@ class CommandExecPayload(_Payload):
     command: str
     exitCode: int
     stdoutTail: str
+    # stderr 单独留存（沙箱 exec demux 分流）：混流会丢失"哪些是报错"
+    stderrTail: str | None = None
     durationMs: int = Field(ge=0)
 
 

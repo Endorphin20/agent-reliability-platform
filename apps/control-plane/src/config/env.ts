@@ -16,8 +16,12 @@ const EnvSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v === 'true'),
-  GITHUB_APP_ID: z.string().optional().default(''),
-  GITHUB_APP_PRIVATE_KEY_PATH: z.string().optional().default(''),
+  // 出站建 PR：fine-grained PAT（或 GitHub App 安装令牌，二者对 REST 调用等价）
+  GITHUB_TOKEN: z.string().optional().default(''),
+  // 补丁目标仓库（owner/name），即 fixture 仓库的 GitHub 远端
+  GITHUB_REPO: z.string().optional().default(''),
+  GITHUB_BASE_BRANCH: z.string().optional().default('main'),
+  // 入站 webhook 验签密钥；为空时 webhook 端点直接拒绝
   GITHUB_WEBHOOK_SECRET: z.string().optional().default(''),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default(''),
 });
@@ -34,9 +38,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
     if (parsed.data.GITHUB_ENABLED) {
       const missing = [
-        ['GITHUB_APP_ID', parsed.data.GITHUB_APP_ID],
-        ['GITHUB_APP_PRIVATE_KEY_PATH', parsed.data.GITHUB_APP_PRIVATE_KEY_PATH],
-        ['GITHUB_WEBHOOK_SECRET', parsed.data.GITHUB_WEBHOOK_SECRET],
+        ['GITHUB_TOKEN', parsed.data.GITHUB_TOKEN],
+        ['GITHUB_REPO', parsed.data.GITHUB_REPO],
       ]
         .filter(([, value]) => !value)
         .map(([name]) => name);

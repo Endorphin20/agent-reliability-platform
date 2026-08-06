@@ -28,6 +28,15 @@ LABEL_RUN_ID = "arp.run_id"
 class ExecResult:
     exit_code: int
     stdout: str
+    stderr: str = ""
+
+    @property
+    def combined(self) -> str:
+        """stdout + 显式标注的 stderr。给模型/取证用：混流会丢失
+        「哪些是报错」这一信息，排查测试失败时代价很大。"""
+        if not self.stderr:
+            return self.stdout
+        return f"{self.stdout}\n[stderr]\n{self.stderr}" if self.stdout else f"[stderr]\n{self.stderr}"
 
 
 class SandboxError(Exception):
@@ -52,11 +61,12 @@ class Sandbox:
         # 用容器内 GNU timeout 实现超时强杀（124 = 超时退出码）
         wrapped = ["timeout", "--signal=KILL", str(limit), "sh", "-lc", command]
         try:
-            exit_code, output = self.container.exec_run(wrapped, workdir=cwd, demux=False)
+            exit_code, (out, err) = self.container.exec_run(wrapped, workdir=cwd, demux=True)
         except docker.errors.DockerException as exc:
             raise SandboxCrashed(f"沙箱容器不可用（run={self.run_id}）: {exc}") from exc
-        stdout = output.decode("utf-8", errors="replace") if output else ""
-        return ExecResult(exit_code=exit_code, stdout=stdout)
+        stdout = out.decode("utf-8", errors="replace") if out else ""
+        stderr = err.decode("utf-8", errors="replace") if err else ""
+        return ExecResult(exit_code=exit_code, stdout=stdout, stderr=stderr)
 
     def destroy(self) -> None:
         try:

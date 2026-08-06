@@ -1,6 +1,7 @@
 # Agent Reliability & Governance Platform
 
 <p>
+  <a href="https://github.com/Endorphin20/agent-reliability-platform/actions/workflows/ci.yml"><img src="https://github.com/Endorphin20/agent-reliability-platform/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/TypeScript-NestJS%20%2B%20Next.js-3178c6" alt="TypeScript">
   <img src="https://img.shields.io/badge/Python-3.12%20%2B%20LangGraph-3776ab" alt="Python">
   <img src="https://img.shields.io/badge/PostgreSQL-16-336791" alt="PostgreSQL">
@@ -37,6 +38,7 @@
 | 可恢复 | 三种故障注入（kill 沙箱 / kill worker / 模型 429）全部自动恢复：租约心跳判活、Policy 决策表（RESUME/RETRY/ESCALATE/ABORT）、LangGraph PostgresSaver checkpoint 续跑、已完成工具调用幂等缓存（`cached=true`） |
 | 可评测 | `arp-eval` CLI 跑批：12 个自建金标 fixture + **SWE-bench Lite 12 实例子集**（django/sympy 真实历史 bug，基准 test_patch 对 Agent 不可见）；双 Agent 对比、故障注入 ± 恢复消融、反馈模式消融；LLM Judge（独立模型 claude-opus-4-6）按验收条款逐条打分 |
 | 可治理 | V1–V6 六步 Verifier 门禁（补丁形态/改动范围/静态检查/定向测试/回归测试/作弊检测）+ 人工审批后才建 PR |
+| CI 闭环 | GitHub webhook（HMAC 验签）issue 评论 `/arp run <fixtureId>` 触发任务 → Agent 修复 → 审批通过 → 推 `agent-fix/*` 分支并创建**真实 GitHub PR**（幂等重试），出入站全链路实测 |
 
 ## 架构总览
 

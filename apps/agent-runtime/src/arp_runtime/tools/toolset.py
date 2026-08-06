@@ -227,7 +227,8 @@ class Toolset:
                 "command": command,
                 "exitCode": result.exit_code,
                 "stdoutTail": result.stdout[-2000:],
+                **({"stderrTail": result.stderr[-2000:]} if result.stderr else {}),
                 "durationMs": int((time.monotonic() - start) * 1000),
             })
-            return f"exit={result.exit_code}\n{result.stdout[-8000:]}"
+            return f"exit={result.exit_code}\n{result.combined[-8000:]}"
         return self._record("run_command", {"command": command}, impl)

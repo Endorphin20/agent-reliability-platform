@@ -52,6 +52,8 @@ export const CommandExecPayload = z.object({
   command: z.string(),
   exitCode: z.number().int(),
   stdoutTail: z.string(),
+  /** stderr 单独留存（沙箱 exec demux 分流）：混流会丢失"哪些是报错"。 */
+  stderrTail: z.string().optional(),
   durationMs: z.number().int().nonnegative(),
 });
 

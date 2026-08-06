@@ -18,7 +18,7 @@ flowchart LR
         OUTBOX[Outbox -> Redis<br/>run-commands]
         SSE[SSE 推送]
         EVAL[评测 API<br/>EvaluationRun/Result]
-        GH[GitHub 出站<br/>dev = mock PR]
+        GH[GitHub 集成<br/>webhook 入站 + PR 出站]
     end
 
     subgraph 执行面["apps/agent-runtime (Python worker)"]
@@ -80,7 +80,7 @@ sequenceDiagram
     W->>CP: complete attempt（diff + judge 报告落 Artifact）
     CP->>U: Task AWAITING_APPROVAL（SSE 实时推送全程事件）
     U->>CP: POST /api/approvals/:id/decide APPROVED
-    CP->>CP: 建 PR（dev 为 mock URL）-> Task PR_CREATED
+    CP->>CP: 建 PR（GITHUB_ENABLED 时推分支+真实 PR，dev 为 mock URL）-> Task PR_CREATED
 ```
 
 事件一致性：每个 Run 的事件带**严格递增 sequence**（DB 唯一约束 + 事务内分配），
@@ -148,7 +148,11 @@ sequenceDiagram
   定向测试（fail_to_pass）/ 回归测试（pass_to_pass）/ 测试防篡改（V6 短路提前跑）；
 - **LLM Judge 只参考不否决**：独立模型（claude-opus-4-6）独立上下文按
   acceptance_criteria 逐条 0–5 打分，结果进审批页辅助人工决策；
-- **人工审批**：AWAITING_APPROVAL -> APPROVED 才触发 PR 创建（dev 为 mock URL）。
+- **人工审批**：AWAITING_APPROVAL -> APPROVED 才触发 PR 创建。`GITHUB_ENABLED=true`
+  时走真实流程：本地检出 fixture 仓库 -> `agent-fix/<taskId>` 分支应用补丁 ->
+  push -> REST 建 PR（幂等：分支 force push，422 复用既有 PR）；入站为
+  `POST /api/github/webhook`，HMAC-SHA256 验签后 issue 评论 `/arp run <fixtureId>`
+  直接触发任务，形成 issue -> 修复 -> 审批 -> PR 的完整闭环。
 
 ## 5. SWE-bench Lite 子集接入
 
@@ -186,7 +190,7 @@ sequenceDiagram
 | --- | --- | --- |
 | 鉴权/多租户 | 无鉴权，单 default project | OIDC + RBAC + project 隔离 |
 | 队列 | Redis List + Outbox 轮询 | Kafka/NATS，消费组扩展 |
-| worker 扩展 | 单 worker 串行 | 多 worker 水平扩展（租约机制已支持） |
-| GitHub App | 出站 mock PR；webhook 验签/去重未实装 | 完整 App 安装流 + delivery id 去重 |
+| worker 扩展 | 多 worker 并发/租约接管已实测（实验六），未做吞吐压测 | 容量规划 + 自动扩缩 |
+| GitHub 集成 | PAT 出站真实建 PR + webhook 验签触发任务已实装 | App 安装流 + delivery id 去重 + 状态回写 |
 | OTel 导出 | compose 预留 jaeger profile | TraceEvent -> OTLP 双写 |
 | 沙箱加固 | Docker 默认隔离 | gVisor/Firecracker、seccomp 白名单 |

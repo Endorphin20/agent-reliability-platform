@@ -137,6 +137,9 @@ export class RunLifecycleService {
     budgetTokens?: number;
     budgetSeconds?: number;
     budgetTurns?: number;
+    // GitHub webhook 触发时为 GITHUB_ISSUE + issue URL
+    source?: 'MANUAL' | 'GITHUB_ISSUE';
+    sourceRef?: string;
   }) {
     const fixture = this.fixtures.get(input.fixtureId);
     return this.prisma.$transaction(async (tx) => {
@@ -146,7 +149,8 @@ export class RunLifecycleService {
           projectId: project.id,
           title: fixture.title,
           description: fixture.taskSpec.description,
-          source: 'MANUAL',
+          source: input.source ?? 'MANUAL',
+          sourceRef: input.sourceRef,
           fixtureId: fixture.id,
           status: 'CREATED',
           allowedPaths: fixture.taskSpec.allowedPaths,

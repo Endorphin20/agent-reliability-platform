@@ -70,6 +70,22 @@
     "runId": "run_01",
     "attemptId": "att_01",
     "attemptNo": 1,
+    "attemptSequence": 8,
+    "occurredAt": "2026-07-20T06:00:16.000Z",
+    "idempotencyKey": "run_01:1:8",
+    "type": "COMMAND_EXEC",
+    "payload": {
+      "command": "python -m pytest tests/test_cart.py",
+      "exitCode": 1,
+      "stdoutTail": "1 failed, 5 passed",
+      "stderrTail": "DeprecationWarning: ...",
+      "durationMs": 2100
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
     "attemptSequence": 5,
     "occurredAt": "2026-07-20T06:00:16.000Z",
     "idempotencyKey": "run_01:1:5",

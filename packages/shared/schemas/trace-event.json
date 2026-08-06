@@ -309,6 +309,9 @@
             "stdoutTail": {
               "type": "string"
             },
+            "stderrTail": {
+              "type": "string"
+            },
             "durationMs": {
               "type": "integer",
               "minimum": 0,
