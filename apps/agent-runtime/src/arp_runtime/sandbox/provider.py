@@ -99,6 +99,10 @@ class DockerSandboxProvider:
         except subprocess.CalledProcessError as exc:
             shutil.rmtree(workdir, ignore_errors=True)
             raise SandboxError(f"检出 {base_ref} 失败: {exc.stderr.decode(errors='replace')}") from exc
+        # Linux 宿主上 bind mount 保留属主 uid，容器内 agent(10001) 会因此写不了
+        # /workspace（macOS Docker Desktop 的文件映射掩盖了这一点）。工作副本是
+        # 一次性检出，放开权限是安全的
+        subprocess.run(["chmod", "-R", "a+rwX", str(workdir)], check=True, timeout=60)
         return workdir / "repo"
 
     def start(self, run_id: str, repo_path: str, base_ref: str) -> Sandbox:

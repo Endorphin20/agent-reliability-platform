@@ -20,6 +20,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Prisma client 生成（jest 依赖生成产物）
+        # prisma.config 解析期就要求 DATABASE_URL，generate 本身不连库，给哑值即可
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
         run: pnpm --filter control-plane exec prisma generate
       - name: 构建 shared
         run: pnpm --filter @arp/shared build
