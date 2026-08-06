@@ -26,7 +26,9 @@
     "payload": {
       "toolCallId": "tc_001",
       "tool": "read_file",
-      "args": { "path": "packages/cart/src/discount.ts" },
+      "args": {
+        "path": "packages/cart/src/discount.ts"
+      },
       "resultDigest": "sha256:abc123",
       "durationMs": 12,
       "cached": false
@@ -43,7 +45,10 @@
     "payload": {
       "path": "packages/cart/src/discount.ts",
       "changeType": "modify",
-      "diffStat": { "additions": 4, "deletions": 2 }
+      "diffStat": {
+        "additions": 4,
+        "deletions": 2
+      }
     }
   },
   {
@@ -69,7 +74,11 @@
     "occurredAt": "2026-07-20T06:00:16.000Z",
     "idempotencyKey": "run_01:1:5",
     "type": "STATE_TRANSITION",
-    "payload": { "entity": "run", "from": "RUNNING", "to": "VERIFYING" }
+    "payload": {
+      "entity": "run",
+      "from": "RUNNING",
+      "to": "VERIFYING"
+    }
   },
   {
     "runId": "run_01",
@@ -79,7 +88,11 @@
     "occurredAt": "2026-07-20T06:00:17.000Z",
     "idempotencyKey": "run_01:1:6",
     "type": "CHECKPOINT_SAVED",
-    "payload": { "checkpointId": "ckpt_01", "usedTokens": 15400, "usedSeconds": 95 }
+    "payload": {
+      "checkpointId": "ckpt_01",
+      "usedTokens": 15400,
+      "usedSeconds": 95
+    }
   },
   {
     "runId": "run_01",
@@ -89,7 +102,10 @@
     "occurredAt": "2026-07-20T06:00:20.000Z",
     "idempotencyKey": "run_01:1:7",
     "type": "FAILURE_DETECTED",
-    "payload": { "failureCode": "SANDBOX_CRASHED", "message": "container exited with 137" }
+    "payload": {
+      "failureCode": "SANDBOX_CRASHED",
+      "message": "container exited with 137"
+    }
   },
   {
     "runId": "run_01",
@@ -99,7 +115,11 @@
     "occurredAt": "2026-07-20T06:00:25.000Z",
     "idempotencyKey": "run_01:2:1",
     "type": "RECOVERY_ACTION",
-    "payload": { "action": "RESUME", "fromCheckpointId": "ckpt_01", "newAttemptNo": 2 }
+    "payload": {
+      "action": "RESUME",
+      "fromCheckpointId": "ckpt_01",
+      "newAttemptNo": 2
+    }
   },
   {
     "runId": "run_01",
@@ -113,7 +133,11 @@
       "step": "V2",
       "passed": false,
       "failureCode": "VERIFY_SCOPE_VIOLATION",
-      "detail": { "violations": ["packages/other/src/pricing.ts"] }
+      "detail": {
+        "violations": [
+          "packages/other/src/pricing.ts"
+        ]
+      }
     }
   },
   {
@@ -124,7 +148,11 @@
     "occurredAt": "2026-07-20T06:02:00.000Z",
     "idempotencyKey": "run_01:2:3",
     "type": "APPROVAL_EVENT",
-    "payload": { "status": "APPROVED", "reviewer": "liutianhao", "prUrl": "https://github.com/x/y/pull/1" }
+    "payload": {
+      "status": "APPROVED",
+      "reviewer": "liutianhao",
+      "prUrl": "https://github.com/x/y/pull/1"
+    }
   },
   {
     "runId": "run_01",
@@ -134,6 +162,30 @@
     "occurredAt": "2026-07-20T06:02:05.000Z",
     "idempotencyKey": "run_01:2:4",
     "type": "BUDGET_UPDATE",
-    "payload": { "usedTokens": 23000, "usedSeconds": 180, "usedTurns": 6 }
+    "payload": {
+      "usedTokens": 23000,
+      "usedSeconds": 180,
+      "usedTurns": 6
+    }
+  },
+  {
+    "runId": "run_01",
+    "attemptId": "att_01",
+    "attemptNo": 1,
+    "attemptSequence": 12,
+    "occurredAt": "2026-07-20T06:00:06.000Z",
+    "idempotencyKey": "run_01:1:12",
+    "type": "TOOL_CALL",
+    "payload": {
+      "toolCallId": "tc_002",
+      "tool": "run_command",
+      "args": {
+        "command": "make build"
+      },
+      "resultDigest": "sha256:def456",
+      "durationMs": 3,
+      "cached": false,
+      "error": "命令被拒绝: 不在白名单: make build"
+    }
   }
 ]

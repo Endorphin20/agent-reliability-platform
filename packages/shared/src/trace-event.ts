@@ -35,6 +35,8 @@ export const ToolCallPayload = z.object({
   resultDigest: z.string(),
   durationMs: z.number().int().nonnegative(),
   cached: z.boolean(),
+  /** 工具执行失败时的错误信息（guard 拒绝等）。失败调用同样是审计信息。 */
+  error: z.string().optional(),
 });
 
 export const FileChangePayload = z.object({

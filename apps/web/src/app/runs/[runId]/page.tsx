@@ -249,7 +249,10 @@ function eventSummary(event: TraceEvent): string {
       return `${p.model} · ${p.promptTokens}+${p.completionTokens} tok · ${p.latencyMs}ms · turn ${p.turn}`;
     case "TOOL_CALL": {
       const args = p.args as Record<string, unknown> | undefined;
-      return `${p.tool}(${JSON.stringify(args ?? {}).slice(0, 80)})${p.cached ? " [cached]" : ""}`;
+      const suffix = p.error
+        ? ` ⛔ ${String(p.error).slice(0, 80)}`
+        : p.cached ? " [cached]" : "";
+      return `${p.tool}(${JSON.stringify(args ?? {}).slice(0, 80)})${suffix}`;
     }
     case "COMMAND_EXEC":
       return `${String(p.command).slice(0, 60)} → exit ${p.exitCode}`;

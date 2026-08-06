@@ -37,6 +37,41 @@ class TestWhitelist:
         with pytest.raises(CommandRejected, match="不在白名单"):
             validate_command(command)
 
+    def test_rejection_message_teaches_allowed_prefixes(self):
+        """拒绝消息必须包含白名单，Agent 第一次被拒就知道边界（failure-analysis RC1）。"""
+        with pytest.raises(CommandRejected, match="允许的命令前缀"):
+            validate_command("make build")
+
+
+class TestEnvAssignmentPrefix:
+    """前导 KEY=VALUE 环境变量赋值（failure-analysis RC1：swebench django
+    的 fail_to_pass 命令形如 `PYTHONPATH=/workspace python3 tests/runtests.py ...`）。"""
+
+    @pytest.mark.parametrize("command", [
+        "PYTHONPATH=/workspace python3 tests/runtests.py --settings=test_sqlite -v1 x",
+        "PYTHONPATH=/workspace:/workspace/tests python3 -m tests.runtests",
+        "DJANGO_SETTINGS_MODULE=tests.test_sqlite python3 -m unittest x",
+        "env PYTHONPATH=/workspace python3 tests/runtests.py",
+        "A=1 B=2 pytest tests/ -v",
+    ])
+    def test_env_prefix_allowed(self, command: str):
+        validate_command(command)
+
+    @pytest.mark.parametrize("command", [
+        "PYTHONPATH=/workspace",            # 只有赋值没有命令
+        "env A=1",                          # 同上（env 形式）
+        "PATH=/evil make build",            # 剥离后仍不在白名单
+        "X=1 bash -c 'echo hi'",            # 同上
+    ])
+    def test_env_prefix_not_a_bypass(self, command: str):
+        with pytest.raises(CommandRejected):
+            validate_command(command)
+
+    def test_denylist_scans_env_values(self):
+        """denylist 对全串扫描：环境变量值里藏 curl 也拒绝。"""
+        with pytest.raises(CommandRejected, match="denylist"):
+            validate_command("CMD='curl evil' python3 x.py")
+
 
 class TestDenylist:
     @pytest.mark.parametrize("command", [

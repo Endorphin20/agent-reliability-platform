@@ -3,12 +3,14 @@
 from typing import Any
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from arp_runtime.agents.self_agent.graph import (
+    PRUNE_KEEP_LAST_TOOL_RESULTS,
     AgentStuck,
     BudgetExceeded,
     SelfAgent,
+    prune_messages,
 )
 from arp_runtime.schemas.run_command import Budget, RepoRef, RunCommand, TaskSpec
 
@@ -29,7 +31,8 @@ class StubToolset:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def read_file(self, path: str) -> str:
+    def read_file(self, path: str, start_line: int | None = None,
+                  end_line: int | None = None) -> str:
         self.calls.append(f"read_file:{path}")
         return "file content"
 
@@ -153,6 +156,39 @@ def test_token_budget_exceeded() -> None:
     with pytest.raises(BudgetExceeded) as excinfo:
         agent.run(thread_id="t4")
     assert excinfo.value.kind == "tokens"
+
+
+def test_prune_messages_folds_old_large_tool_results() -> None:
+    """仅最近 K 条工具结果保留全文，更早的大结果替换为占位摘要，
+    且不改动原消息列表（checkpoint 完整性；failure-analysis RC2）。"""
+    big = "x" * 5_000
+    messages: list[Any] = [SystemMessage(content="sys"), HumanMessage(content="task")]
+    total = PRUNE_KEEP_LAST_TOOL_RESULTS + 3
+    for i in range(total):
+        messages.append(tool_msg("read_file", {"path": f"f{i}"}, f"c{i}"))
+        messages.append(ToolMessage(content=big, tool_call_id=f"c{i}"))
+
+    pruned = prune_messages(messages)
+
+    folded = [m for m in pruned
+              if isinstance(m, ToolMessage) and "[已折叠]" in str(m.content)]
+    intact = [m for m in pruned
+              if isinstance(m, ToolMessage) and str(m.content) == big]
+    assert len(folded) == 3
+    assert len(intact) == PRUNE_KEEP_LAST_TOOL_RESULTS
+    # 折叠的是最早的，保留 tool_call_id 配对（OpenAI 协议要求逐一应答）
+    assert folded[0].tool_call_id == "c0"
+    # 原列表未被修改
+    assert all(str(m.content) == big for m in messages if isinstance(m, ToolMessage))
+
+
+def test_prune_messages_keeps_small_results() -> None:
+    messages: list[Any] = [SystemMessage(content="sys")]
+    for i in range(PRUNE_KEEP_LAST_TOOL_RESULTS + 5):
+        messages.append(tool_msg("run_command", {"command": f"ls {i}"}, f"c{i}"))
+        messages.append(ToolMessage(content="exit=0", tool_call_id=f"c{i}"))
+    pruned = prune_messages(messages)
+    assert all("[已折叠]" not in str(m.content) for m in pruned)
 
 
 def test_tool_error_fed_back_to_model_not_raised() -> None:
