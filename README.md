@@ -131,7 +131,7 @@ sequenceDiagram
 
 ## 评测体系与实验结论
 
-`arp-eval` CLI 一条命令跑批，每个 run 输出解决率 / tokens / 耗时 / 成本 / Judge 分。四组实验的完整数据与勘误见 [docs/experiment-report.md](docs/experiment-report.md)，关键结论：
+`arp-eval` CLI 一条命令跑批，每个 run 输出解决率 / tokens / 耗时 / 成本 / Judge 分。六组实验的完整数据与勘误见 [docs/experiment-report.md](docs/experiment-report.md)，关键结论：
 
 **实验一 · 双 Agent 对比**（12 个自建金标 fixture）：自研 LangGraph 与 mini-SWE-agent 解决率打平（12/12），mini-SWE 纯 bash 循环省约 40% tokens；自研换来的是 checkpoint 级可恢复性——"可靠性税"的直观定价。
 
@@ -144,7 +144,13 @@ sequenceDiagram
 
 **实验三 · 反馈模式消融**：结构化反馈（失败分类 + 定位建议）比裸贴原始输出省约 19% tokens / 24% 成本。
 
-**实验四 · SWE-bench Lite 12 实例子集**（django + sympy 真实历史 bug）：mini-SWE 9/12 vs 自研 6/12——真实基准把两个 Agent 拉开了，自建 fixture 上看不出的探索效率差距在大仓库上直接吃掉解决率。24 个 run 越界改动均为 0，V6 防篡改 + test_patch 不可见的组合下无一作弊。
+**实验四 · SWE-bench Lite 12 实例子集**（django + sympy 真实历史 bug）：mini-SWE 9/12 vs 自研 v1 6/12——真实基准把两个 Agent 拉开了，自建 fixture 上看不出的探索效率差距在大仓库上直接吃掉解决率。36 个 run 越界改动均为 0，V6 防篡改 + test_patch 不可见的组合下无一作弊。
+
+**实验五 · 失败分析驱动的 Agent v2**（[docs/failure-analysis.md](docs/failure-analysis.md)）：对 6 个失败 run 做事件流 + checkpoint 取证，归因出两个平台缺陷（guard 白名单挡死合法测试命令、read_file 全文回读导致上下文膨胀）；修复后同配置重跑 **50% → 83%（10/12），反超 mini-SWE 且成本降 34%**——事件溯源让 Agent 迭代成为可复现实验，取证到验证一个工作日闭环。
+
+**实验六 · 双 worker 并发**（`scripts/multi-worker-demo.sh`）：6 并发任务两 worker 均分零双重认领；`kill -9` 持有者后租约过期 → WORKER_LOST → 幸存 worker 从 checkpoint 接管跑到成功。
+
+**实验七 · 重复性检验**（fixture-12 × 3 轮）：解决率 / 首试成功率 / Judge 分三轮零方差，tokens 波动约 13%（模型采样噪声）——报告中小于此量级的 token 差距不做解读。
 
 > 诚实口径：子集仅 12 个筛选后实例，解决率不可与官方 SWE-bench Lite 排行榜横比；其价值在于验证平台能承接外部真实基准，并提供更有区分度的 A/B 信号。
 
