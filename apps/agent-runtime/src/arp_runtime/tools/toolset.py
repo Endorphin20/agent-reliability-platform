@@ -97,7 +97,18 @@ class Toolset:
             })
             return f"[cached] {tool} 已在中断前完成，结果摘要 {self.completed[call_id]}"
         start = time.monotonic()
-        result = fn()
+        try:
+            result = fn()
+        except Exception as exc:
+            # 失败调用同样是审计信息：不发事件的话，guard 拒绝在时间线上完全
+            # 不可见（failure-analysis RC3——被迫去 checkpoint blob 里取证）
+            self.emitter.emit("TOOL_CALL", {
+                "toolCallId": call_id, "tool": tool, "args": args,
+                "resultDigest": _digest(str(exc)),
+                "durationMs": int((time.monotonic() - start) * 1000),
+                "cached": False, "error": str(exc)[:500],
+            })
+            raise
         digest = _digest(result)
         self.completed[call_id] = digest
         self.emitter.emit("TOOL_CALL", {
@@ -109,7 +120,13 @@ class Toolset:
 
     # ---- 工具实现 ----
 
-    def read_file(self, path: str) -> str:
+    # 无行范围时的默认窗口：大文件全文回读是上下文膨胀的主因
+    # （failure-analysis RC2：django/sympy 数千行文件读三四个后每轮固定背 37-48k token）
+    READ_DEFAULT_WINDOW = 200
+    READ_MAX_CHARS = 50_000
+
+    def read_file(self, path: str, start_line: int | None = None,
+                  end_line: int | None = None) -> str:
         def impl() -> str:
             target = (self.sandbox.workdir / path).resolve()
             if not str(target).startswith(str(self.sandbox.workdir.resolve())):
@@ -122,9 +139,30 @@ class Toolset:
                         return (f"[error] 文件不存在: {path}。"
                                 f"path 需相对仓库根，你可能想读 {self.workdir_prefix}/{path}")
                 return f"[error] 文件不存在: {path}（path 需相对仓库根）"
-            content = target.read_text(errors="replace")
-            return content[:50_000]
-        return self._record("read_file", {"path": path}, impl)
+            lines = target.read_text(errors="replace").splitlines()
+            total = len(lines)
+            first = max(1, start_line or 1)
+            if end_line is not None:
+                last = min(total, end_line)
+            elif start_line is not None:
+                last = min(total, first + self.READ_DEFAULT_WINDOW - 1)
+            else:
+                last = total if total <= self.READ_DEFAULT_WINDOW else self.READ_DEFAULT_WINDOW
+            numbered = "\n".join(
+                f"{i:6}|{lines[i - 1]}" for i in range(first, last + 1)
+            )[: self.READ_MAX_CHARS]
+            if first > 1 or last < total:
+                header = (f"[{path} 共 {total} 行，显示 {first}-{last}；"
+                          f"用 start_line/end_line 读取其他区间，"
+                          f"建议先 search_code 定位行号]\n")
+                return header + numbered
+            return numbered
+        args: dict[str, Any] = {"path": path}
+        if start_line is not None:
+            args["start_line"] = start_line
+        if end_line is not None:
+            args["end_line"] = end_line
+        return self._record("read_file", args, impl)
 
     def search_code(self, pattern: str, glob: str = "**/*") -> str:
         def impl() -> str:

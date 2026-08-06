@@ -18,6 +18,10 @@ const CreateTaskSchema = z.object({
   // 评测实验开关（T11）
   recoveryDisabled: z.boolean().optional(),
   feedbackMode: z.enum(['structured', 'raw']).optional(),
+  // 预算覆盖（SWE-bench 等重型任务用，缺省走 Run 表默认值）
+  budgetTokens: z.number().int().positive().optional(),
+  budgetSeconds: z.number().int().positive().optional(),
+  budgetTurns: z.number().int().positive().optional(),
 });
 
 @Controller('api/tasks')

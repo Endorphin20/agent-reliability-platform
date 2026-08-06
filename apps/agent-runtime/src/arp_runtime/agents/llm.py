@@ -141,14 +141,22 @@ def tool_specs() -> list[dict[str, Any]]:
         }
 
     return [
-        spec("read_file", "读取仓库内文件内容（相对仓库根路径）",
-             {"path": {"type": "string"}}, ["path"]),
+        spec("read_file",
+             "读取仓库内文件（相对仓库根路径），输出带行号前缀。大文件务必用 "
+             "start_line/end_line 按窗口读取（默认只显示前 200 行），"
+             "先 search_code 定位行号",
+             {"path": {"type": "string"},
+              "start_line": {"type": "integer", "description": "起始行（1-based，含）"},
+              "end_line": {"type": "integer", "description": "结束行（含）"}},
+             ["path"]),
         spec("search_code", "在仓库内按正则搜索代码，返回 文件:行号:内容",
              {"pattern": {"type": "string"}, "glob": {"type": "string"}}, ["pattern"]),
-        spec("apply_patch", "应用 unified diff 补丁到仓库（git apply）",
+        spec("apply_patch", "应用 unified diff 补丁到仓库（git apply）。"
+             "上下文行必须与原文件精确一致，不要包含 read_file 的行号前缀",
              {"patch": {"type": "string"}}, ["patch"]),
         spec("run_command",
-             "在沙箱内执行白名单命令（pnpm/npm/node/python/pytest/git status 等），工作目录为仓库根",
+             "在沙箱内执行白名单命令（pnpm/npm/node/python/pytest/git status 等，"
+             "支持前导 KEY=VALUE 环境变量赋值），工作目录为仓库根",
              {"command": {"type": "string"}}, ["command"]),
     ]
 

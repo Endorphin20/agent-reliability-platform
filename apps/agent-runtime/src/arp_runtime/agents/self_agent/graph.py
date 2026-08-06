@@ -53,26 +53,69 @@ class AgentState(TypedDict):
 
 
 SYSTEM_PROMPT = """你是一个自动代码修复 Agent，在隔离沙箱中工作。流程要求：
-1. diagnose：先用 read_file / search_code 理解问题相关代码；
+1. diagnose：先用 search_code 定位相关代码的文件与行号，再用 read_file 的
+   start_line/end_line 读取目标区间；
 2. plan：简述修复方案（一两句话即可）；
 3. edit：用 apply_patch 提交 unified diff（上下文行必须与原文件精确一致）；
 4. test：用 run_command 运行任务给出的测试命令验证。
+上下文纪律（重要，token 预算有限）：
+- 绝不整读大文件：先 search_code 拿到行号，再按 100-200 行的窗口读取；
+- read_file 输出带 `行号|` 前缀，仅用于定位——写 diff 时绝不要把行号前缀
+  带进补丁内容；
+- 较早轮次的工具输出会被折叠，需要时用行范围重新读取。
 约束：只修改任务允许的路径；绝不修改测试文件；测试全部通过后输出 FINISH。
-节约轮次：轮次预算有限，不要反复读同一文件或用 run_command 探索目录结构，
+节约轮次：不要反复读同一文件或用 run_command 探索目录结构，
 诊断信息足够后立即动手修改。
 """
+
+# 消息修剪：仅最近 K 条工具结果保留全文，更早的替换为占位摘要。
+# 只影响发给模型的输入，不动 LangGraph checkpoint 里的完整历史
+# （failure-analysis RC2：历史零修剪导致每轮固定背 37-48k token）。
+PRUNE_KEEP_LAST_TOOL_RESULTS = 8
+PRUNE_MIN_CHARS = 1_500
+
+
+def prune_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
+    tool_indexes = [
+        i for i, m in enumerate(messages) if isinstance(m, ToolMessage)
+    ]
+    to_fold = set(tool_indexes[:-PRUNE_KEEP_LAST_TOOL_RESULTS])
+    pruned: list[BaseMessage] = []
+    for i, message in enumerate(messages):
+        content = message.content if isinstance(message.content, str) else ""
+        if i in to_fold and len(content) > PRUNE_MIN_CHARS:
+            pruned.append(ToolMessage(
+                content=(f"[已折叠] 此前的工具结果（{len(content)} 字符）。"
+                         f"如需内容请重新调用工具（read_file 可用行范围）。"),
+                tool_call_id=message.tool_call_id,  # type: ignore[union-attr]
+            ))
+        else:
+            pruned.append(message)
+    return pruned
 
 
 def build_task_prompt(command: RunCommand) -> str:
     spec = command.taskSpec
+    if spec.workdir in ("", "."):
+        # swebench 套件：真实上游仓库，工作目录就是仓库根（不是 monorepo）
+        layout = (
+            "仓库布局: 单体仓库，仓库根即工作目录。\n"
+            "路径口径: 所有工具（read_file / search_code / apply_patch / run_command）"
+            "统一以仓库根为基准。\n"
+            "下方给出的测试命令原样执行即可（支持前导 KEY=VALUE 环境变量）。\n"
+        )
+    else:
+        layout = (
+            f"仓库布局: monorepo，本任务的包目录是 {spec.workdir}/（含 src/ 与 tests/）。\n"
+            f"路径口径（重要，两套工具口径不同）:\n"
+            f"- read_file / search_code / apply_patch 的 path 一律相对仓库根，"
+            f"例如 {spec.workdir}/src/xxx.py，diff 头也用该口径；\n"
+            f"- run_command 固定在 {spec.workdir}/ 下执行，命令里写包内相对路径"
+            f"（下方给出的测试命令已按此口径，原样执行即可，不要加 cd 或改路径）。\n"
+        )
     return (
         f"任务: {spec.description}\n"
-        f"仓库布局: monorepo，本任务的包目录是 {spec.workdir}/（含 src/ 与 tests/）。\n"
-        f"路径口径（重要，两套工具口径不同）:\n"
-        f"- read_file / search_code / apply_patch 的 path 一律相对仓库根，"
-        f"例如 {spec.workdir}/src/xxx.py，diff 头也用该口径；\n"
-        f"- run_command 固定在 {spec.workdir}/ 下执行，命令里写包内相对路径"
-        f"（下方给出的测试命令已按此口径，原样执行即可，不要加 cd 或改路径）。\n"
+        f"{layout}"
         f"允许修改的路径（相对仓库根）: {spec.allowedPaths}\n"
         f"静态检查: {spec.staticCheck}\n"
         f"定向测试（必须让它通过）: {spec.failToPass}\n"
@@ -110,7 +153,7 @@ class SelfAgent:
             raise BudgetExceeded("seconds", f"{elapsed}s/{budget.remainingSeconds}s")
 
         start = time.monotonic()
-        response = self.model.invoke(state["messages"])
+        response = self.model.invoke(prune_messages(state["messages"]))
         prompt_tokens, completion_tokens = usage_tokens(response)
         used_tokens = state["used_tokens"] + prompt_tokens + completion_tokens
         turn = state["turn"] + 1
@@ -171,7 +214,9 @@ class SelfAgent:
 
         try:
             if name == "read_file":
-                return self.toolset.read_file(args["path"])
+                return self.toolset.read_file(
+                    args["path"], args.get("start_line"), args.get("end_line")
+                )
             if name == "search_code":
                 return self.toolset.search_code(args["pattern"], args.get("glob", "**/*"))
             if name == "apply_patch":

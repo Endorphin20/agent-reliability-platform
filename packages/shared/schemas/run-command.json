@@ -87,6 +87,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "testPatch": {
+          "type": "string"
         }
       },
       "required": [

@@ -144,6 +144,9 @@
             },
             "cached": {
               "type": "boolean"
+            },
+            "error": {
+              "type": "string"
             }
           },
           "required": [

@@ -35,6 +35,8 @@ class ToolCallPayload(_Payload):
     resultDigest: str
     durationMs: int = Field(ge=0)
     cached: bool
+    # 工具执行失败时的错误信息（guard 拒绝等）。失败调用同样是审计信息。
+    error: str | None = None
 
 
 class DiffStat(_Payload):
