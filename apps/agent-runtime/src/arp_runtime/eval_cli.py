@@ -116,7 +116,8 @@ def _cost_usd(client: httpx.Client, run_id: str) -> float:
     total = 0.0
     for event in events:
         payload = event["payload"]
-        model = str(payload.get("model", "")).split("/")[-1]
+        # condenser 调用以 "<model>(condenser)" 标注，计价对齐底层模型
+        model = str(payload.get("model", "")).split("/")[-1].removesuffix("(condenser)")
         input_price, output_price = MODEL_PRICES.get(model, DEFAULT_PRICE)
         total += payload.get("promptTokens", 0) / 1e6 * input_price
         total += payload.get("completionTokens", 0) / 1e6 * output_price
@@ -176,6 +177,7 @@ def run(
         "structured", help="RESUME 反馈模式：structured | raw（实验三）"
     ),
     tasks: str = typer.Option("", help="逗号分隔的 fixture id，覆盖 suite 选择"),
+    label: str = typer.Option("", help="批次标签后缀（如 condense，用于区分 worker 侧配置）"),
 ) -> None:
     """串行跑一个评测批次，逐任务写 EvaluationResult。"""
     if agent not in AGENT_KIND:
@@ -193,6 +195,8 @@ def run(
         suite_label += "+no-recovery"
     if feedback != "structured":
         suite_label += f"+feedback-{feedback}"
+    if label:
+        suite_label += f"+{label}"
 
     evaluation = client.post("/api/evaluations", json={
         "suite": suite_label,

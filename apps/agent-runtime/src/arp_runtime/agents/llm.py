@@ -123,9 +123,41 @@ class OpenAICompatibleModel:
 
 def build_model(gold_patch: str, fail_to_pass: list[str]) -> Any:
     settings = get_settings()
-    if settings.llm_provider == "fake":
+    if settings.mock_mode or settings.llm_provider == "fake":
         return FakeScriptedModel(gold_patch, fail_to_pass)
     return OpenAICompatibleModel(tool_specs())
+
+
+class FakeCondenserModel:
+    """确定性假摘要器（fake provider / 单测）。"""
+
+    model = "fake-condenser"
+
+    def invoke(self, messages: list[BaseMessage]) -> AIMessage:
+        text = str(messages[-1].content)
+        return AIMessage(
+            content=f"摘要: {text[:120]}",
+            usage_metadata={"input_tokens": 50, "output_tokens": 10, "total_tokens": 60},
+        )
+
+
+def build_condenser_model() -> Any:
+    """condenser 专用模型：无工具绑定、小输出上限（CONDENSER_LLM_MODEL 可
+    指定更便宜的型号，缺省复用主模型配置）。"""
+    settings = get_settings()
+    if settings.llm_provider == "fake":
+        return FakeCondenserModel()
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(
+        model=settings.condenser_llm_model or settings.llm_model,
+        api_key=settings.llm_api_key or "missing-key",
+        base_url=settings.llm_base_url or None,
+        temperature=0,
+        timeout=60,
+        max_retries=1,
+        max_tokens=400,
+    )
 
 
 def tool_specs() -> list[dict[str, Any]]:
