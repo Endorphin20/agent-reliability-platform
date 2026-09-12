@@ -3,11 +3,16 @@
 可靠性要点（§4.5）：
 - commandId 幂等：SET cmd:{commandId} NX EX 3600，重复投递直接 ACK；
 - 心跳线程按 HEARTBEAT_MS 续租（必须 < LEASE_TTL_MS / 2）；
-- 失败按分类映射 FailureCode 上报，恢复决策全部在 Control Plane Policy Engine。
+- 失败按分类映射 FailureCode 上报，恢复决策全部在 Control Plane Policy Engine；
+- 优雅停机：SIGTERM/SIGINT 后不再领新消息，跑完当前 attempt 退出（滚动升级用）；
+- XAUTOCLAIM：周期接管死 consumer 的 pending 消息，配合 commandId 幂等，
+  重复接管天然安全（已消费的直接 ACK 清理僵尸 PEL）。
 """
 
 import json
 import logging
+import os
+import signal
 import threading
 import time
 
@@ -56,6 +61,7 @@ class Worker:
         self.cp = ControlPlaneClient()
         self._real_executor: RealExecutor | None = None
         self._stopped = False
+        self._last_reclaim = 0.0
 
     def ensure_group(self) -> None:
         try:
@@ -75,11 +81,65 @@ class Worker:
         except Exception as exc:  # noqa: BLE001 Docker 不可用时只跑 fake 任务，不阻塞启动
             logger.warning("孤儿沙箱清扫跳过: %s", exc)
 
+    def install_signal_handlers(self) -> None:
+        """优雅停机：首次 SIGTERM/SIGINT 停止领新消息、跑完当前 attempt 再退出；
+        再来一次强制退出（租约过期 + XAUTOCLAIM 兜底未完成的工作）。"""
+
+        def handle(signum: int, _frame: object) -> None:
+            if self._stopped:
+                logger.warning("再次收到 %s，强制退出", signal.Signals(signum).name)
+                os._exit(130)
+            logger.warning(
+                "收到 %s，优雅停机：跑完当前命令后退出（再发一次强制退出）",
+                signal.Signals(signum).name,
+            )
+            self._stopped = True
+
+        signal.signal(signal.SIGTERM, handle)
+        signal.signal(signal.SIGINT, handle)
+
+    def reclaim_pending(self) -> int:
+        """XAUTOCLAIM 接管空闲超阈值的 pending 消息（死 consumer 遗留）。
+
+        两种结局都安全：commandId 已被死 consumer 消费过 -> handle_entry 幂等
+        判重直接 ACK（清理僵尸 PEL）；没消费过 -> 本 worker 正常执行（快路径
+        接管，不必等控制面租约过期再发新命令）。返回接管的消息数。
+        """
+        result = self.redis.xautoclaim(
+            RUN_COMMANDS_STREAM,
+            RUN_COMMANDS_GROUP,
+            self.settings.worker_id,
+            min_idle_time=self.settings.reclaim_min_idle_ms,
+            start_id="0",
+            count=10,
+        )
+        # redis-py 返回 (next_start_id, messages) 或 (next, messages, deleted_ids)
+        messages = result[1]
+        for entry_id, fields in messages:
+            logger.warning("XAUTOCLAIM 接管 pending 消息 %s", entry_id)
+            try:
+                self.handle_entry(entry_id, fields)
+            except Exception:  # noqa: BLE001
+                logger.exception("接管消息 %s 处理失败，留在 pending 重试", entry_id)
+        return len(messages)
+
+    def _maybe_reclaim(self) -> None:
+        now = time.monotonic()
+        if now - self._last_reclaim < self.settings.reclaim_interval_s:
+            return
+        self._last_reclaim = now
+        try:
+            self.reclaim_pending()
+        except Exception:  # noqa: BLE001 接管失败不影响主消费循环
+            logger.exception("XAUTOCLAIM 扫描失败")
+
     def run_forever(self) -> None:
+        self.install_signal_handlers()
         self.cleanup_orphan_sandboxes()
         self.ensure_group()
         logger.info("worker %s 开始消费 %s", self.settings.worker_id, RUN_COMMANDS_STREAM)
         while not self._stopped:
+            self._maybe_reclaim()
             entries = self.redis.xreadgroup(
                 RUN_COMMANDS_GROUP,
                 self.settings.worker_id,
@@ -91,10 +151,16 @@ class Worker:
                 continue
             for _stream, messages in entries:
                 for entry_id, fields in messages:
+                    if self._stopped:
+                        # 停机窗口内刚读到但未开始的消息：不处理不 ACK，
+                        # 留在 PEL 由其他 worker XAUTOCLAIM 接管
+                        logger.info("停机中，消息 %s 留给其他 worker 接管", entry_id)
+                        continue
                     try:
                         self.handle_entry(entry_id, fields)
                     except Exception:  # noqa: BLE001
                         logger.exception("处理命令 %s 失败，留在 pending 重试", entry_id)
+        logger.info("worker %s 已优雅退出", self.settings.worker_id)
 
     def handle_entry(self, entry_id: str, fields: dict[str, str]) -> None:
         command = RunCommand.model_validate(json.loads(fields["data"]))

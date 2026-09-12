@@ -161,10 +161,19 @@ v2 修复（平台不动核心架构，只改工具与 Agent 策略）：guard �
   attempt 表零双重认领（Redis NX 命令锁 + 控制面原子 claim 的互斥生效）；
 - **租约接管**：`kill -9` 持有任务的 worker 后，租约过期 → attempt 1 标记
   `LEASE_EXPIRED`，PolicyDecision 记录 `WORKER_LOST → RESUME`，幸存 worker
-  认领 attempt 2 从 checkpoint 续跑至 SUCCEEDED。
+  认领 attempt 2 从 checkpoint 续跑至 SUCCEEDED；
+- **XAUTOCLAIM 僵尸 PEL 清理**（Phase C1，2026-08-06 追加）：被 `kill -9` 的
+  worker 留下"已消费未 ACK"的 pending 消息；幸存 worker 周期 `XAUTOCLAIM`
+  接管后按 commandId 幂等判重直接 ACK（不重跑），XPENDING 归零。两种结局都
+  安全：没消费过的消息由接管者正常执行（快路径，不必等租约过期），消费过的
+  只清理 PEL——实际恢复语义仍由控制面租约 + Policy Engine 决定；
+- **SIGTERM 优雅停机**（Phase C2，同日追加）：任务执行中向 worker 发
+  SIGTERM，worker 停止领新消息、跑完当前 attempt（SUCCEEDED）后退出，全程
+  零 `WORKER_LOST`——滚动升级/缩容不再制造假故障；再发一次信号则强制退出，
+  未完成的工作交给租约过期 + XAUTOCLAIM 兜底。
 
-说明：水平扩展依赖的互斥/租约/幂等机制得到实测验证；单机双 worker 不构成
-吞吐压测，容量规划需另做。
+说明：水平扩展依赖的互斥/租约/幂等/接管机制得到实测验证；单机双 worker
+不构成吞吐压测，容量规划需另做。
 
 ## 实验七：重复性检验（fixture-12 × 自研 v2 × 3 轮，2026-08-06）
 

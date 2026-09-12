@@ -86,6 +86,21 @@ sequenceDiagram
 事件一致性：每个 Run 的事件带**严格递增 sequence**（DB 唯一约束 + 事务内分配），
 worker 上报带 `idempotencyKey`，重放/重试不产生重复事件。
 
+worker 生命周期（多 worker 安全，实验六三幕实测）：
+
+- **消费**：Redis Streams 消费组，commandId `SET NX` 幂等锁防双重执行；
+- **优雅停机**：SIGTERM/SIGINT 后停止领新消息、跑完当前 attempt 再退出
+  （滚动升级不触发 WORKER_LOST 假故障），再来一次信号强制退出；
+- **XAUTOCLAIM 接管**：周期扫描空闲超阈值（默认 60s）的 pending 消息，
+  接管后按 commandId 幂等判重——没消费过的正常执行（快路径接管），
+  消费过的直接 ACK 清理僵尸 PEL；恢复语义仍由控制面租约 + Policy 决定。
+
+上下文管理（`CONTEXT_MODE`，实验八对比）：发给模型的消息历史只保留最近
+8 条工具结果全文，更早的按模式处理——`fold` 替换为固定占位符（零成本，
+模型需要时重新调工具），`condense` 用一次无工具小输出的模型调用压成事实
+摘要（按 tool_call_id 缓存只摘要一次，token 计入 attempt 预算，失败降级
+为 fold）。两种模式都不动 LangGraph checkpoint 里的完整历史。
+
 ## 3. 故障恢复
 
 ### 3.1 Policy 决策表（节选）

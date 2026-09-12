@@ -71,11 +71,15 @@ SYSTEM_PROMPT = """你是一个自动代码修复 Agent，在隔离沙箱中工�
 # 消息修剪：仅最近 K 条工具结果保留全文，更早的替换为占位摘要。
 # 只影响发给模型的输入，不动 LangGraph checkpoint 里的完整历史
 # （failure-analysis RC2：历史零修剪导致每轮固定背 37-48k token）。
+# condense 传入摘要器（CONTEXT_MODE=condense，实验八）时，折叠改为 LLM 事实摘要。
 PRUNE_KEEP_LAST_TOOL_RESULTS = 8
 PRUNE_MIN_CHARS = 1_500
 
 
-def prune_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
+def prune_messages(
+    messages: list[BaseMessage],
+    condense: Any = None,  # callable(tool_call_id, content) -> str
+) -> list[BaseMessage]:
     tool_indexes = [
         i for i, m in enumerate(messages) if isinstance(m, ToolMessage)
     ]
@@ -84,11 +88,13 @@ def prune_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
     for i, message in enumerate(messages):
         content = message.content if isinstance(message.content, str) else ""
         if i in to_fold and len(content) > PRUNE_MIN_CHARS:
-            pruned.append(ToolMessage(
-                content=(f"[已折叠] 此前的工具结果（{len(content)} 字符）。"
-                         f"如需内容请重新调用工具（read_file 可用行范围）。"),
-                tool_call_id=message.tool_call_id,  # type: ignore[union-attr]
-            ))
+            call_id = message.tool_call_id  # type: ignore[union-attr]
+            if condense is not None:
+                folded = condense(call_id, content)
+            else:
+                folded = (f"[已折叠] 此前的工具结果（{len(content)} 字符）。"
+                          f"如需内容请重新调用工具（read_file 可用行范围）。")
+            pruned.append(ToolMessage(content=folded, tool_call_id=call_id))
         else:
             pruned.append(message)
     return pruned
@@ -132,12 +138,25 @@ class SelfAgent:
         model: Any,
         checkpointer: Any = None,
         on_checkpoint: Any = None,  # callable(used_tokens, used_seconds) -> None
+        condenser: Any = None,  # 测试注入用；缺省按 CONTEXT_MODE 构建
     ) -> None:
         self.command = command
         self.toolset = toolset
         self.emitter = emitter
         self.model = model
         self.on_checkpoint = on_checkpoint
+        if condenser is not None:
+            self.condenser = condenser
+        else:
+            from arp_runtime.config import get_settings
+
+            if get_settings().context_mode == "condense":
+                from arp_runtime.agents.condenser import Condenser
+                from arp_runtime.agents.llm import build_condenser_model
+
+                self.condenser = Condenser(build_condenser_model(), emitter)
+            else:
+                self.condenser = None
         # 本 attempt 的墙钟起点（不进 checkpoint：恢复后重新计时，用 remainingSeconds 约束）
         self._attempt_started = time.time()
         self.graph = self._build().compile(checkpointer=checkpointer)
@@ -153,9 +172,14 @@ class SelfAgent:
             raise BudgetExceeded("seconds", f"{elapsed}s/{budget.remainingSeconds}s")
 
         start = time.monotonic()
-        response = self.model.invoke(prune_messages(state["messages"]))
+        if self.condenser is not None:
+            self.condenser.turn = state["turn"] + 1
+        response = self.model.invoke(prune_messages(state["messages"], self.condenser))
         prompt_tokens, completion_tokens = usage_tokens(response)
-        used_tokens = state["used_tokens"] + prompt_tokens + completion_tokens
+        # 摘要调用的 token 一并计入预算（诚实口径，实验八对比的前提）
+        condense_tokens = self.condenser.take_new_tokens() if self.condenser else 0
+        used_tokens = (state["used_tokens"] + prompt_tokens
+                       + completion_tokens + condense_tokens)
         turn = state["turn"] + 1
 
         self.emitter.emit("MODEL_CALL", {

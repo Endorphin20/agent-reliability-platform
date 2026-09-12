@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     worker_id: str = Field(default="worker-1", alias="WORKER_ID")
     heartbeat_ms: int = Field(default=10000, alias="HEARTBEAT_MS")
 
+    mock_mode: bool = Field(default=True, alias="MOCK_MODE")
     llm_provider: str = Field(default="openai", alias="LLM_PROVIDER")
     llm_model: str = Field(default="glm-4.6v", alias="LLM_MODEL")
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
@@ -40,6 +41,16 @@ class Settings(BaseSettings):
 
     fixture_repo_path: str = Field(default="~/Coding/agent-reliability/agent-fixture-repo", alias="FIXTURE_REPO_PATH")
     fault_inject: str = Field(default="", alias="FAULT_INJECT")
+
+    # XAUTOCLAIM 接管：空闲超过该阈值的 pending 消息视为死 consumer 遗留
+    # （应大于单条命令的正常处理时长上限；实际恢复由租约兜底，这里是快路径 + PEL 清理）
+    reclaim_min_idle_ms: int = Field(default=60_000, alias="RECLAIM_MIN_IDLE_MS")
+    reclaim_interval_s: int = Field(default=30, alias="RECLAIM_INTERVAL_S")
+
+    # 上下文管理模式：fold=旧工具结果折叠为占位符（零成本）；
+    # condense=用一次廉价模型调用压成摘要（花小钱保信息，实验八对比）
+    context_mode: str = Field(default="fold", alias="CONTEXT_MODE")
+    condenser_llm_model: str = Field(default="", alias="CONDENSER_LLM_MODEL")
 
 
 @lru_cache(maxsize=1)

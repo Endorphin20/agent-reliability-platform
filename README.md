@@ -248,3 +248,15 @@ pnpm -r test                                     # web / control-plane / shared�
 | [docs/architecture.md](docs/architecture.md) | 架构图、事件流、恢复时序、Policy 决策表、SWE-bench 接入设计、裁剪边界 |
 | [docs/experiment-report.md](docs/experiment-report.md) | 四组实验完整数据、勘误说明、Judge 抽查结论 |
 | [docs/demo-script.md](docs/demo-script.md) | 5 分钟演示脚本（含现场杀沙箱环节） |
+
+## 最简本地启动
+
+```bash
+git clone <repo>
+cd agent-reliability-platform
+cp .env.example .env
+./scripts/setup.sh
+./scripts/dev.sh
+```
+
+默认 `MOCK_MODE=true`，用于无 API Key 的本地演示；需要真实模型时在 `.env` 设置 `MOCK_MODE=false`、`LLM_API_KEY` 及对应端点。停止服务运行 `./scripts/stop.sh`，日志位于 `.dev-logs/`。
