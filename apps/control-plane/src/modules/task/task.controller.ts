@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { AGENT_KINDS } from '@arp/shared';
@@ -22,6 +23,16 @@ const CreateTaskSchema = z.object({
   budgetTokens: z.number().int().positive().optional(),
   budgetSeconds: z.number().int().positive().optional(),
   budgetTurns: z.number().int().positive().optional(),
+});
+
+const PositiveIntegerQuery = z.string().regex(/^\d+$/).transform(Number)
+  .pipe(z.number().int().positive());
+const ListTasksSchema = z.object({
+  page: PositiveIntegerQuery.prefault('1'),
+  pageSize: PositiveIntegerQuery.pipe(z.number().max(100)).prefault('20'),
+}).refine(({ page, pageSize }) => Number.isSafeInteger((page - 1) * pageSize), {
+  message: '分页偏移量过大',
+  path: ['page'],
 });
 
 @Controller('api/tasks')
@@ -41,15 +52,24 @@ export class TaskController {
   }
 
   @Get()
-  async list() {
-    return this.prisma.task.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: {
-        runs: { select: { id: true, agentKind: true, status: true, createdAt: true } },
-        approval: { select: { id: true, status: true, prUrl: true } },
-      },
-    });
+  async list(@Query() query: unknown = {}) {
+    const parsed = ListTasksSchema.safeParse(query);
+    if (!parsed.success) throw new BadRequestException(parsed.error.issues);
+    const { page, pageSize } = parsed.data;
+
+    return this.prisma.$transaction(async (tx) => {
+      const total = await tx.task.count();
+      const items = await tx.task.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          runs: { select: { id: true, agentKind: true, status: true, createdAt: true } },
+          approval: { select: { id: true, status: true, prUrl: true } },
+        },
+      });
+      return { items, total, page, pageSize };
+    }, { isolationLevel: 'RepeatableRead' });
   }
 
   @Get(':id')

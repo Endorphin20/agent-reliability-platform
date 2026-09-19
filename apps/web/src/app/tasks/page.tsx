@@ -2,23 +2,59 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import {
   fetchJson,
   type AgentKind,
   type Fixture,
-  type TaskListItem,
+  type TaskListResponse,
 } from "../../lib/api";
 import { AgentBadge, StatusBadge } from "../../components/status-badge";
 import { ErrorCard } from "../../components/error-card";
 
 export default function TasksPage() {
+  return <Suspense fallback={<ListSkeleton />}><TasksList /></Suspense>;
+}
+
+const PAGE_SIZE = 20;
+
+function TasksList() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rawPage = searchParams.get("page");
+  const parsedPage = Number(rawPage);
+  const validPage = rawPage !== null && /^\d+$/.test(rawPage) &&
+    Number.isSafeInteger(parsedPage) && parsedPage > 0 &&
+    Number.isSafeInteger((parsedPage - 1) * PAGE_SIZE) &&
+    searchParams.getAll("page").length === 1;
+  const page = validPage ? parsedPage : 1;
   const tasks = useQuery({
-    queryKey: ["tasks"],
-    queryFn: () => fetchJson<TaskListItem[]>("/api/tasks"),
+    queryKey: ["tasks", page, PAGE_SIZE],
+    queryFn: ({ signal }) => fetchJson<TaskListResponse>(
+      `/api/tasks?page=${page}&pageSize=${PAGE_SIZE}`, { signal },
+    ),
     refetchInterval: 4000,
   });
+  const totalPages = tasks.data ? Math.max(1, Math.ceil(tasks.data.total / PAGE_SIZE)) : 1;
+  const outOfRange = !!tasks.data && page > totalPages;
+  const correctedPage = outOfRange ? totalPages : page;
+
+  useEffect(() => {
+    if (rawPage !== String(correctedPage) || searchParams.getAll("page").length !== 1) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("page", String(correctedPage));
+      router.replace(`${pathname}?${params}`, { scroll: false });
+    }
+  }, [rawPage, correctedPage, pathname, router, searchParams]);
+
+  const goToPage = (nextPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(nextPage));
+    router.push(`${pathname}?${params}`, { scroll: false });
+  };
 
   return (
     <div className="space-y-6">
@@ -37,11 +73,14 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {tasks.isLoading && <ListSkeleton />}
+      {(tasks.isLoading || outOfRange) && <ListSkeleton />}
       {tasks.isError && (
-        <ErrorCard message={String(tasks.error)} onRetry={() => tasks.refetch()} />
+        <ErrorCard
+          message={`${tasks.data ? "刷新失败，当前显示上次加载的数据。" : ""}${String(tasks.error)}`}
+          onRetry={() => tasks.refetch()}
+        />
       )}
-      {tasks.data && tasks.data.length === 0 && (
+      {tasks.data && tasks.data.total === 0 && !outOfRange && (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-12 text-center">
           <p className="text-zinc-500">还没有任务</p>
           <button
@@ -52,7 +91,7 @@ export default function TasksPage() {
           </button>
         </div>
       )}
-      {tasks.data && tasks.data.length > 0 && (
+      {tasks.data && tasks.data.items.length > 0 && !outOfRange && (
         <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500">
@@ -65,7 +104,7 @@ export default function TasksPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {tasks.data.map((task) => (
+              {tasks.data.items.map((task) => (
                 <tr key={task.id} className="hover:bg-zinc-50">
                   <td className="px-4 py-3">
                     <div className="font-medium">{task.title}</div>
@@ -120,15 +159,51 @@ export default function TasksPage() {
               ))}
             </tbody>
           </table>
+          <TaskPagination page={page} totalPages={totalPages} total={tasks.data.total} onPageChange={goToPage} />
         </div>
       )}
 
-      {dialogOpen && <CreateTaskDialog onClose={() => setDialogOpen(false)} />}
+      {dialogOpen && <CreateTaskDialog onClose={() => setDialogOpen(false)} onCreated={() => goToPage(1)} />}
     </div>
   );
 }
 
-function CreateTaskDialog({ onClose }: { onClose: () => void }) {
+function TaskPagination({ page, totalPages, total, onPageChange }: {
+  page: number;
+  totalPages: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}) {
+  const visiblePages = Array.from(new Set([
+    1, totalPages,
+    ...Array.from({ length: 5 }, (_, index) => page + index - 2),
+  ])).filter((value) => value >= 1 && value <= totalPages).sort((a, b) => a - b);
+  const buttonClass = "rounded-md border border-zinc-200 px-3 py-1.5 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40";
+
+  return (
+    <nav aria-label="任务分页" className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 px-4 py-3 text-sm">
+      <span className="text-zinc-500" aria-live="polite">共 {total} 条 · 第 {page} / {totalPages} 页</span>
+      <div className="flex flex-wrap items-center gap-1">
+        <button type="button" className={buttonClass} disabled={page === 1} onClick={() => onPageChange(page - 1)}>上一页</button>
+        {visiblePages.map((value, index) => (
+          <span key={value} className="contents">
+            {index > 0 && value - visiblePages[index - 1] > 1 && <span className="px-2 text-zinc-400">…</span>}
+            <button
+              type="button"
+              aria-label={`第 ${value} 页`}
+              aria-current={page === value ? "page" : undefined}
+              className={page === value ? "rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-white" : buttonClass}
+              onClick={() => onPageChange(value)}
+            >{value}</button>
+          </span>
+        ))}
+        <button type="button" className={buttonClass} disabled={page === totalPages} onClick={() => onPageChange(page + 1)}>下一页</button>
+      </div>
+    </nav>
+  );
+}
+
+function CreateTaskDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const queryClient = useQueryClient();
   const [fixtureId, setFixtureId] = useState("");
   const [agentKind, setAgentKind] = useState<AgentKind>("SELF_LANGGRAPH");
@@ -154,6 +229,7 @@ function CreateTaskDialog({ onClose }: { onClose: () => void }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       onClose();
+      onCreated();
     },
   });
 
