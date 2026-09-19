@@ -34,6 +34,13 @@ export interface TaskListItem {
   } | null;
 }
 
+export interface TaskListResponse {
+  items: TaskListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface Fixture {
   id: string;
   title: string;
