@@ -10,6 +10,7 @@
    任一步失败 -> FAILED(VERIFY_*)，恢复决策交给 Control Plane Policy Engine。
 """
 
+from arp_runtime.evidence import save_evidence
 import hashlib
 import logging
 import subprocess
@@ -17,12 +18,17 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from arp_runtime.agents.budgeted_model import BudgetContext, active_budget, UsageUnknown
+from arp_runtime.environment.builder import prepare_environment
+from arp_runtime.verifier.test_contract import run_check
+from arp_runtime.verifier.baseline import classify_baseline
 from arp_runtime.agents.adapter import AgentAdapter, SelfLangGraphAdapter
 from arp_runtime.agents.llm import build_model
 from arp_runtime.agents.mini_swe import MiniSWEAgentAdapter
 from arp_runtime.config import get_settings
 from arp_runtime.control_plane import ControlPlaneClient
 from arp_runtime.events import EventEmitter
+from arp_runtime.sandbox.patch import capture_patch
 from arp_runtime.sandbox.provider import DockerSandboxProvider, Sandbox
 from arp_runtime.schemas.run_command import RunCommand
 from arp_runtime.tools.toolset import Toolset
@@ -54,11 +60,7 @@ def _read_gold_patch(fixture_id: str) -> str:
 
 
 def _current_diff(sandbox: Sandbox, base_commit: str) -> str:
-    result = subprocess.run(
-        ["git", "diff", base_commit],
-        cwd=sandbox.workdir, capture_output=True, text=True, timeout=60,
-    )
-    return result.stdout if result.returncode == 0 else ""
+    return capture_patch(sandbox.workdir, base_commit)
 
 
 def _restore_from_checkpoint(sandbox: Sandbox, checkpoint: dict[str, Any]) -> None:
@@ -102,9 +104,48 @@ class RealExecutor:
 
     def execute(self, command: RunCommand, attempt_id: str, emitter: EventEmitter) -> AttemptOutcome:
         fine_grained = command.agentKind != "MINI_SWE"
+        self.provider.attempt_id = attempt_id
 
-        sandbox = self.provider.start(command.runId, command.repo.path, command.repo.baseCommit)
+        image_id = None
+        budget_token = None
+        if command.snapshot:
+            pinned_environment = self.cp.phase(attempt_id, "PREPARING")
+            if self.settings.mock_mode or self.settings.llm_provider == "fake":
+                self.cp.pause(attempt_id, "REAL_TASK_REQUIRES_REAL_MODEL")
+                return AttemptOutcome(status="PAUSED")
+            try:
+                if pinned_environment.get("imageId"):
+                    image_id = self.provider.client.images.get(pinned_environment["imageId"]).id
+                    fingerprint, log = pinned_environment["fingerprint"], "Reused pinned task environment"
+                else:
+                    fingerprint, image_id, log = prepare_environment(self.provider.client, command.repo.path,
+                        command.repo.baseCommit, command.snapshot.config,
+                        timeout_s=command.budget.remainingSeconds,
+                        check_lease=lambda: self.cp.heartbeat(attempt_id))
+                self.cp.environment(attempt_id, fingerprint, image_id, log)
+            except Exception as exc:
+                self.cp.phase(attempt_id, "PREPARING", {"error": str(exc)[:2000]})
+                self.cp.pause(attempt_id, "ENVIRONMENT_ERROR")
+                return AttemptOutcome(status="PAUSED")
+            budget_token = active_budget.set(BudgetContext(self.cp, command.runId, attempt_id,
+                self.settings.llm_context_token_limit, self.settings.llm_max_output_tokens))
+        sandbox = None
         try:
+            sandbox = self.provider.start(command.runId, command.repo.path, command.repo.baseCommit, image_id=image_id) if image_id else self.provider.start(command.runId, command.repo.path, command.repo.baseCommit)
+            if command.snapshot:
+                self.cp.phase(attempt_id, "REPRODUCING")
+                baseline, baseline_cases = run_check(sandbox, command.snapshot.baseline.command,
+                    timeout_s=min(command.budget.remainingSeconds, self.settings.sandbox_timeout_s),
+                    cwd=f"/workspace/{command.taskSpec.workdir}")
+                classification = classify_baseline(baseline.exit_code, baseline.combined, command.snapshot.baseline.expected)
+                save_evidence(attempt_id, "", {"baseline": {"classification": classification, "output": baseline.combined[-20000:], "testCases": baseline_cases}})
+                self.cp.phase(attempt_id, "BASELINE", {"classification": classification,
+                    "command": command.snapshot.baseline.command, "exitCode": baseline.exit_code,
+                    "output": baseline.combined[-20000:], "testCases": baseline_cases, "sha": command.repo.baseCommit})
+                if classification != "REPRODUCED":
+                    self.cp.pause(attempt_id, classification)
+                    return AttemptOutcome(status="PAUSED")
+                self.cp.phase(attempt_id, "REPAIRING")
             # RESUME：细粒度 adapter 重建沙箱状态 + 载入副作用缓存；
             # 粗粒度 adapter（mini-SWE）退化为重启，只继承失败反馈文本（IM-06）
             completed_tool_calls: dict[str, str] = {}
@@ -127,6 +168,8 @@ class RealExecutor:
 
             def on_checkpoint(used_tokens: int, used_seconds: int) -> None:
                 diff = _current_diff(sandbox, command.repo.baseCommit)
+                if command.snapshot:
+                    save_evidence(attempt_id, diff, {"checkpoint": True})
                 checkpoint_id = self.cp.save_checkpoint(command.runId, {
                     "attemptId": attempt_id,
                     "threadId": command.runId,
@@ -164,7 +207,7 @@ class RealExecutor:
                 adapter = MiniSWEAgentAdapter(sandbox, emitter, on_checkpoint=on_checkpoint)
             else:
                 model = build_model(
-                    _read_gold_patch(command.taskSpec.fixtureId), command.taskSpec.failToPass
+                    (_read_gold_patch(command.taskSpec.fixtureId) if command.taskSpec.fixtureId else ""), command.taskSpec.failToPass
                 )
                 adapter = SelfLangGraphAdapter(
                     toolset, emitter, model,
@@ -182,14 +225,30 @@ class RealExecutor:
 
             # 六步 Verifier 门禁
             verification: list[dict[str, Any]] = []
+            verification_sandbox = sandbox
+            if command.snapshot:
+                self.cp.phase(attempt_id, "VERIFYING")
+                candidate = _current_diff(sandbox, command.repo.baseCommit)
+                verification_sandbox = self.provider.start(command.runId, command.repo.path, command.repo.baseCommit, image_id=image_id)
+                if candidate.strip():
+                    subprocess.run(["git", "apply", "-"], cwd=verification_sandbox.workdir,
+                        input=candidate, text=True, check=True, capture_output=True, timeout=30)
             pipeline = VerifierPipeline(
-                sandbox, emitter, command.taskSpec, command.repo.baseCommit,
+                verification_sandbox, emitter, command.taskSpec, command.repo.baseCommit,
                 on_result=lambda r: verification.append({
                     "step": r.step, "passed": r.passed, "failureCode": r.failure_code,
                     "detail": r.detail, "durationMs": r.duration_ms,
                 }),
             )
-            report: VerifyReport = pipeline.run()
+            if command.snapshot:
+                pipeline.verify_contract = True
+                pipeline.baseline_cases = {command.snapshot.baseline.command: baseline_cases} if baseline_cases is not None else {}
+                pipeline.protected_paths = command.snapshot.config.protectedPaths + command.snapshot.config.dependencyFiles + ["pyproject.toml", "pytest.ini", "setup.cfg", "tox.ini", "conftest.py", "**/conftest.py", "requirements*.txt", "requirements*.lock", "**/requirements*.txt", "Pipfile*", "poetry.lock", "uv.lock", ".python-version", "Dockerfile*", "docker-compose*", ".github/workflows/**"]
+            try:
+                report: VerifyReport = pipeline.run()
+            finally:
+                if verification_sandbox is not sandbox:
+                    verification_sandbox.destroy()
 
             if report.passed:
                 # LLM Judge：独立模型对补丁按验收条款逐条打分（不否决，失败返回 None）
@@ -210,5 +269,18 @@ class RealExecutor:
                 used_tokens=used_tokens, used_seconds=used_seconds,
                 verification=verification, patch=report.patch or None,
             )
+        except Exception as exc:
+            if command.snapshot:
+                try:
+                    patch = _current_diff(sandbox, command.repo.baseCommit)
+                except Exception:
+                    patch = ""
+                save_evidence(attempt_id, patch, {"error": type(exc).__name__})
+                self.cp.pause(attempt_id, "MODEL_USAGE_UNKNOWN" if isinstance(exc, UsageUnknown) else type(exc).__name__, patch)
+                return AttemptOutcome(status="PAUSED")
+            raise
         finally:
-            sandbox.destroy()
+            if budget_token is not None:
+                active_budget.reset(budget_token)
+            if sandbox is not None:
+                sandbox.destroy()

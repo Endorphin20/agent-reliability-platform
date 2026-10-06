@@ -21,6 +21,8 @@
 """
 
 import json
+import os
+from pathlib import Path
 import subprocess
 import time
 from typing import Any
@@ -50,7 +52,10 @@ RUN_TIMEOUT_S = 1500
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(base_url=get_settings().control_plane_url, timeout=30.0)
+    token_file = Path(os.environ.get('ARP_DATA_DIR', str(Path.home() / '.arp'))) / 'access-token'
+    token = token_file.read_text().strip() if token_file.exists() else ''
+    return httpx.Client(base_url=get_settings().control_plane_url, timeout=30.0,
+        headers={'Authorization': f'Bearer {token}'} if token else {})
 
 
 # swebench 任务显著更重：预算与轮询超时单独放宽

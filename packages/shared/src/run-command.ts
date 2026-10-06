@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AGENT_KINDS, RUN_COMMAND_TYPES } from "./enums";
+import { TaskSnapshotSchema } from './task-snapshot';
 
 /**
  * RunCommand：Control Plane 经 Transactional Outbox 发布到 Redis Streams
@@ -8,7 +9,7 @@ import { AGENT_KINDS, RUN_COMMAND_TYPES } from "./enums";
  */
 
 export const TaskSpecSchema = z.object({
-  fixtureId: z.string(),
+  fixtureId: z.string().optional(),
   description: z.string(),
   workdir: z.string(), // 命令执行目录（相对仓库根）
   allowedPaths: z.array(z.string()),
@@ -30,6 +31,8 @@ export const BudgetSchema = z.object({
 });
 
 export const RunCommandSchema = z.object({
+  schemaVersion: z.literal(2).optional(),
+  snapshot: TaskSnapshotSchema.optional(),
   commandId: z.string().min(1),
   type: z.enum(RUN_COMMAND_TYPES),
   runId: z.string().min(1),

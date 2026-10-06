@@ -1,3 +1,16 @@
+import { NotificationController } from './modules/notification/notification.controller';
+import { DeliveryService } from './modules/github/delivery.service';
+import { RunControlService } from './modules/run/run-control.service';
+import { BudgetService } from './modules/run/budget.service';
+import { APP_GUARD } from '@nestjs/core';
+import { LocalAuthGuard, SessionController } from './modules/auth/local-auth.guard';
+import { CredentialStore } from './modules/credentials/credential-store';
+import { RepositoryService } from './modules/repository/repository.service';
+import { GitStore } from './modules/repository/git-store';
+import { RepositoryController, CredentialsController } from './modules/repository/repository.controller';
+import { TaskDraftService } from './modules/task/task-draft.service';
+import { TaskDraftController } from './modules/task/task-draft.controller';
+import { PrImportService } from './modules/github/pr-import.service';
 import { Module } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { RedisService } from './redis/redis.service';
@@ -21,6 +34,8 @@ import { TaskController } from './modules/task/task.controller';
 
 @Module({
   controllers: [
+    NotificationController,
+    RepositoryController, CredentialsController, TaskDraftController, SessionController,
     HealthController,
     TaskController,
     RunController,
@@ -32,6 +47,8 @@ import { TaskController } from './modules/task/task.controller';
     GithubWebhookController,
   ],
   providers: [
+    DeliveryService, RunControlService, BudgetService, CredentialStore, RepositoryService, GitStore, TaskDraftService, PrImportService,
+    { provide: APP_GUARD, useClass: LocalAuthGuard },
     PrismaService,
     RedisService,
     RunEventsBus,

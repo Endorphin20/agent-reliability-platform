@@ -9,6 +9,7 @@
   重复接管天然安全（已消费的直接 ACK 清理僵尸 PEL）。
 """
 
+from arp_runtime.evidence import save_evidence, flush_evidence
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ import threading
 import time
 
 import redis
+import httpx
 
 from arp_runtime.agents.llm import ModelRateLimitError
 from arp_runtime.agents.self_agent.graph import AgentStuck, BudgetExceeded
@@ -42,13 +44,21 @@ class HeartbeatThread(threading.Thread):
         self._attempt_id = attempt_id
         self._interval_s = interval_ms / 1000
         self._stop = threading.Event()
+        self.invalid = threading.Event()
 
     def run(self) -> None:
         while not self._stop.wait(self._interval_s):
             try:
                 self._client.heartbeat(self._attempt_id)
             except Exception as exc:  # noqa: BLE001 心跳失败不应打断执行，租约过期由 Control Plane 判定
-                logger.warning("心跳失败 attempt=%s: %s", self._attempt_id, exc)
+                self.invalid.set()
+                logger.warning("心跳失败，停止执行 attempt=%s", self._attempt_id)
+                try:
+                    from arp_runtime.sandbox.provider import DockerSandboxProvider, LABEL_RUN_ID
+                    for container in DockerSandboxProvider().client.containers.list(filters={"label": f"arp.attempt_id={self._attempt_id}"}):
+                        container.stop(timeout=1)
+                except Exception:
+                    logger.warning("无法停止沙箱，等待命令超时")
 
     def stop(self) -> None:
         self._stop.set()
@@ -73,9 +83,17 @@ class Worker:
     def cleanup_orphan_sandboxes(self) -> None:
         """启动时清扫上次崩溃遗留的沙箱容器（MVP 单 worker 假设）。"""
         try:
-            from arp_runtime.sandbox.provider import DockerSandboxProvider
+            from arp_runtime.sandbox.provider import DockerSandboxProvider, LABEL_OWNER
 
-            count = DockerSandboxProvider().cleanup_orphans()
+            provider = DockerSandboxProvider()
+            count = 0
+            for container in provider.client.containers.list(all=True, filters={"label": ["arp.attempt_id", f"{LABEL_OWNER}={provider.owner}"]}):
+                attempt_id = container.labels.get("arp.attempt_id")
+                response = self.cp._client.get(f"/internal/attempts/{attempt_id}/active")
+                response.raise_for_status()
+                if not response.json()["active"]:
+                    container.remove(force=True)
+                    count += 1
             if count:
                 logger.warning("已清理 %d 个孤儿沙箱容器", count)
         except Exception as exc:  # noqa: BLE001 Docker 不可用时只跑 fake 任务，不阻塞启动
@@ -139,14 +157,27 @@ class Worker:
         self.ensure_group()
         logger.info("worker %s 开始消费 %s", self.settings.worker_id, RUN_COMMANDS_STREAM)
         while not self._stopped:
+            try:
+                flush_evidence(self.cp)
+            except Exception:
+                logger.warning("Evidence upload pending; local copy retained")
             self._maybe_reclaim()
-            entries = self.redis.xreadgroup(
-                RUN_COMMANDS_GROUP,
-                self.settings.worker_id,
-                {RUN_COMMANDS_STREAM: ">"},
-                count=1,
-                block=2000,
-            )
+            try:
+                entries = self.redis.xreadgroup(
+                    RUN_COMMANDS_GROUP,
+                    self.settings.worker_id,
+                    {RUN_COMMANDS_STREAM: ">"},
+                    count=1,
+                    block=2000,
+                )
+            except redis.RedisError:
+                logger.warning("Redis unavailable; reconnecting without discarding durable commands")
+                time.sleep(1)
+                try:
+                    self.ensure_group()
+                except redis.RedisError:
+                    pass
+                continue
             if not entries:
                 continue
             for _stream, messages in entries:
@@ -166,7 +197,7 @@ class Worker:
         command = RunCommand.model_validate(json.loads(fields["data"]))
 
         # commandId 幂等：重复消费直接 ACK
-        if not self.redis.set(f"cmd:{command.commandId}", self.settings.worker_id, nx=True, ex=3600):
+        if command.snapshot is None and not self.redis.set(f"cmd:{command.commandId}", self.settings.worker_id, nx=True, ex=3600):
             logger.info("重复命令 %s，跳过", command.commandId)
             self.redis.xack(RUN_COMMANDS_STREAM, RUN_COMMANDS_GROUP, entry_id)
             return
@@ -175,7 +206,16 @@ class Worker:
             self.redis.xack(RUN_COMMANDS_STREAM, RUN_COMMANDS_GROUP, entry_id)
             return
 
-        claim = self.cp.claim_attempt(command.runId, command.attemptNo, self.settings.worker_id)
+        try:
+            claim = self.cp.claim_attempt(command.runId, command.attemptNo, self.settings.worker_id)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (404, 409):
+                self.redis.xack(RUN_COMMANDS_STREAM, RUN_COMMANDS_GROUP, entry_id)
+                return
+            raise
+        if claim.get("duplicate"):
+            self.redis.xack(RUN_COMMANDS_STREAM, RUN_COMMANDS_GROUP, entry_id)
+            return
         attempt_id = claim["attemptId"]
         logger.info(
             "认领 run=%s attempt#%d id=%s (duplicate=%s)",
@@ -183,10 +223,15 @@ class Worker:
         )
 
         heartbeat = HeartbeatThread(self.cp, attempt_id, self.settings.heartbeat_ms)
+        heartbeat._run_id = command.runId
         heartbeat.start()
         emitter = EventEmitter(self.redis, command.runId, attempt_id, command.attemptNo)
         try:
             outcome = self.execute(command, attempt_id, emitter)
+            if outcome.status == "PAUSED":
+                return
+            if command.snapshot:
+                save_evidence(attempt_id, outcome.patch or "", {"status": outcome.status, "verification": outcome.verification})
             self.cp.complete_attempt(attempt_id, {
                 "status": outcome.status,
                 **({"failureCode": outcome.failure_code} if outcome.failure_code else {}),

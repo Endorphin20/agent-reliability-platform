@@ -129,7 +129,7 @@ class Toolset:
                   end_line: int | None = None) -> str:
         def impl() -> str:
             target = (self.sandbox.workdir / path).resolve()
-            if not str(target).startswith(str(self.sandbox.workdir.resolve())):
+            if not target.is_relative_to(self.sandbox.workdir.resolve()) or ".git" in Path(path).parts:
                 raise ToolExecutionError(f"路径越界: {path}")
             if not target.is_file():
                 # 高频错误是漏了包目录前缀（path 需相对仓库根），主动给纠错提示
@@ -172,7 +172,7 @@ class Toolset:
                 return f"[error] 非法正则: {exc}"
             hits: list[str] = []
             for file in sorted(self.sandbox.workdir.glob(glob)):
-                if not file.is_file() or ".git" in file.parts or "node_modules" in file.parts:
+                if not file.resolve().is_relative_to(self.sandbox.workdir.resolve()) or not file.is_file() or ".git" in file.parts or "node_modules" in file.parts:
                     continue
                 try:
                     for lineno, line in enumerate(file.read_text(errors="replace").splitlines(), 1):

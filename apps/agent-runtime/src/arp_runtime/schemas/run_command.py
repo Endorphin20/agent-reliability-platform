@@ -1,6 +1,8 @@
 """packages/shared/src/run-command.ts 的 Pydantic 镜像。"""
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+from arp_runtime.schemas.task_snapshot import TaskSnapshot
 
 from arp_runtime.schemas.enums import AgentKind, RunCommandType
 
@@ -10,7 +12,7 @@ class _Model(BaseModel):
 
 
 class TaskSpec(_Model):
-    fixtureId: str
+    fixtureId: str | None = None
     description: str
     workdir: str
     allowedPaths: list[str]
@@ -37,6 +39,8 @@ class RepoRef(_Model):
 
 
 class RunCommand(_Model):
+    schemaVersion: Literal[2] | None = None
+    snapshot: TaskSnapshot | None = None
     commandId: str = Field(min_length=1)
     type: RunCommandType
     runId: str = Field(min_length=1)

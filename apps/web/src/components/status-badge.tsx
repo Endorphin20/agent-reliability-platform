@@ -1,5 +1,6 @@
 const STATUS_STYLES: Record<string, string> = {
   // Task
+  NEEDS_ATTENTION: "bg-orange-100 text-orange-800",
   CREATED: "bg-zinc-100 text-zinc-600",
   QUEUED: "bg-amber-50 text-amber-700",
   AWAITING_APPROVAL: "bg-violet-50 text-violet-700",

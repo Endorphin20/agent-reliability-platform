@@ -1,3 +1,9 @@
+import { GitStore } from '../repository/git-store';
+import { RunCommandSchema } from '@arp/shared';
+import { randomUUID, createHash } from 'node:crypto';
+import { TaskSnapshotSchema } from '@arp/shared';
+import { commandFromSnapshot } from '../task/task-snapshot.service';
+import { assertDemoInput, assertDemoCapacity } from './public-demo';
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   AgentKind,
@@ -45,7 +51,7 @@ export class RunLifecycleService {
       data: { lastSequence: { increment: 1 } },
       select: { lastSequence: true },
     });
-    const created = await tx.traceEvent.create({
+    await tx.traceEvent.create({
       data: {
         runId,
         attemptId,
@@ -57,15 +63,7 @@ export class RunLifecycleService {
         occurredAt: new Date(),
       },
     });
-    this.bus.publish({
-      runId,
-      runSequence: created.runSequence,
-      type: created.type,
-      payload: created.payload,
-      attemptId: created.attemptId,
-      attemptSequence: created.attemptSequence,
-      occurredAt: created.occurredAt.toISOString(),
-    });
+    // SSE reads committed events from PostgreSQL; never broadcast an uncommitted transition.
   }
 
   private async transitionRun(tx: Tx, runId: string, from: RunStatus, to: RunStatus) {
@@ -141,8 +139,22 @@ export class RunLifecycleService {
     source?: 'MANUAL' | 'GITHUB_ISSUE';
     sourceRef?: string;
   }) {
+    const demo = process.env.ARP_PUBLIC_DEMO === 'true';
+    if (demo) {
+      assertDemoInput(input);
+      input = { ...input, budgetTokens: 10000, budgetSeconds: 180, budgetTurns: 10 };
+    }
     const fixture = this.fixtures.get(input.fixtureId);
+    const baseCommit = fixture.id === 'fake' ? fixture.baseCommit : await new GitStore().resolve(fixture.repoPath, fixture.baseCommit);
     return this.prisma.$transaction(async (tx) => {
+      if (demo) {
+        // Serialize admission across API processes, not just within this instance.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(72819001)`;
+        const active = await tx.run.count({ where: { status: { in: ['PENDING', 'DISPATCHED', 'RUNNING', 'VERIFYING', 'RECOVERING'] } } });
+        const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
+        const today = await tx.task.count({ where: { createdAt: { gte: midnight } } });
+        assertDemoCapacity(active, today);
+      }
       const project = await this.ensureDefaultProject(tx);
       const task = await tx.task.create({
         data: {
@@ -160,7 +172,7 @@ export class RunLifecycleService {
         data: {
           taskId: task.id,
           agentKind: input.agentKind,
-          baseCommit: fixture.baseCommit,
+          baseCommit,
           recoveryDisabled: input.recoveryDisabled ?? false,
           feedbackMode: input.feedbackMode ?? 'structured',
           ...(input.budgetTokens ? { budgetTokens: input.budgetTokens } : {}),
@@ -181,6 +193,7 @@ export class RunLifecycleService {
         budgetSeconds: run.budgetSeconds,
         budgetTurns: run.budgetTurns,
       });
+      command.repo.baseCommit = baseCommit;
       await tx.outboxMessage.create({
         data: { topic: 'run-commands', key: run.id, payload: command as object },
       });
@@ -211,24 +224,31 @@ export class RunLifecycleService {
       return { attemptId: existing.id, leaseTtlMs: env.LEASE_TTL_MS, duplicate: true };
     }
 
+    if (run.status !== 'DISPATCHED') throw new ConflictException('Run is not dispatchable');
     const attempt = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM "Run" WHERE id = ${input.runId} FOR UPDATE`;
+      const current = await tx.run.findUniqueOrThrow({ where: { id: input.runId } });
+      const latest = await tx.attempt.findFirst({ where: { runId: input.runId }, orderBy: { no: 'desc' } });
+      if (current.status !== 'DISPATCHED' || input.attemptNo !== (latest?.no ?? 0) + 1 || input.attemptNo > current.maxAttempts) throw new ConflictException('Attempt is not dispatchable');
       const created = await tx.attempt.create({
         data: {
           runId: input.runId,
           no: input.attemptNo,
           workerId: input.workerId,
+          leaseToken: randomUUID(),
           status: 'RUNNING',
           leaseExpiresAt: new Date(Date.now() + env.LEASE_TTL_MS),
         },
       });
       await this.transitionRun(tx, input.runId, 'DISPATCHED', 'RUNNING');
+      await tx.run.update({ where: { id: input.runId }, data: { activeStartedAt: run.activeStartedAt ?? new Date() } });
       const task = await tx.task.findUniqueOrThrow({ where: { id: run.taskId } });
       if (task.status === 'QUEUED') {
         await this.transitionTask(tx, task.id, 'QUEUED', 'RUNNING');
       }
       return created;
     });
-    return { attemptId: attempt.id, leaseTtlMs: env.LEASE_TTL_MS, duplicate: false };
+    return { attemptId: attempt.id, leaseToken: attempt.leaseToken, leaseTtlMs: env.LEASE_TTL_MS, duplicate: false };
   }
 
   async heartbeat(attemptId: string) {
@@ -274,12 +294,19 @@ export class RunLifecycleService {
     }
 
     const persistExtras = async (tx: Tx) => {
+      if (attempt.run.task.snapshot) {
+        const current = await tx.run.findUniqueOrThrow({ where: { id: attempt.runId } });
+        await tx.run.update({ where: { id: current.id }, data: {
+          usedSeconds: { increment: current.activeStartedAt ? Math.ceil((Date.now() - current.activeStartedAt.getTime()) / 1000) : 0 },
+          activeStartedAt: null,
+        } });
+      }
       if (outcome.usedTokens !== undefined || outcome.usedSeconds !== undefined) {
         await tx.run.update({
           where: { id: attempt.runId },
           data: {
-            ...(outcome.usedTokens !== undefined ? { usedTokens: outcome.usedTokens } : {}),
-            ...(outcome.usedSeconds !== undefined
+            ...(!attempt.run.task.snapshot && outcome.usedTokens !== undefined ? { usedTokens: Math.max(attempt.run.usedTokens, outcome.usedTokens) } : {}),
+            ...(!attempt.run.task.snapshot && outcome.usedSeconds !== undefined
               ? { usedSeconds: { increment: outcome.usedSeconds } }
               : {}),
           },
@@ -327,6 +354,10 @@ export class RunLifecycleService {
 
     if (outcome.status === 'SUCCEEDED') {
       await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT id FROM "Run" WHERE id = ${attempt.runId} FOR UPDATE`;
+        const owner = await tx.attempt.findUniqueOrThrow({ where: { id: attemptId } });
+        if (owner.status !== 'RUNNING' || !owner.leaseExpiresAt || owner.leaseExpiresAt <= new Date()) throw new ConflictException('Attempt lease expired');
+        if (attempt.run.task.snapshot && await tx.budgetCall.count({ where: { runId: attempt.runId, status: { not: 'SETTLED' } } })) throw new ConflictException('Unsettled model usage prevents approval');
         await tx.attempt.update({
           where: { id: attemptId },
           data: { status: 'SUCCEEDED', endedAt: new Date() },
@@ -337,8 +368,10 @@ export class RunLifecycleService {
         await this.transitionRun(tx, attempt.runId, 'RUNNING', 'VERIFYING');
         await this.transitionRun(tx, attempt.runId, 'VERIFYING', 'SUCCEEDED');
         await this.transitionTask(tx, attempt.run.taskId, 'RUNNING', 'AWAITING_APPROVAL');
+        await tx.run.update({ where: { id: attempt.runId }, data: { phase: 'AWAITING_APPROVAL' } });
         await tx.approval.create({
-          data: { taskId: attempt.run.taskId, runId: attempt.runId },
+          data: { taskId: attempt.run.taskId, runId: attempt.runId,
+            patchDigest: outcome.patch ? createHash('sha256').update(outcome.patch).digest('hex') : null },
         });
         await this.appendSyntheticEvent(tx, attempt.runId, 'APPROVAL_EVENT', {
           status: 'PENDING',
@@ -350,6 +383,9 @@ export class RunLifecycleService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM "Run" WHERE id = ${attempt.runId} FOR UPDATE`;
+      const owner = await tx.attempt.findUniqueOrThrow({ where: { id: attemptId } });
+      if (owner.status !== 'RUNNING') throw new ConflictException('Attempt no longer running');
       await tx.attempt.update({
         where: { id: attemptId },
         data: { status: 'FAILED', failureCode: outcome.failureCode, endedAt: new Date() },
@@ -379,24 +415,21 @@ export class RunLifecycleService {
       usedSeconds: number;
     },
   ) {
-    const checkpoint = await this.prisma.checkpoint.create({
-      data: {
-        runId,
-        attemptId: input.attemptId,
-        threadId: input.threadId,
-        baseCommit: input.baseCommit,
-        appliedPatchSha: input.appliedPatchSha,
-        appliedPatch: input.appliedPatch,
-        completedToolCalls: input.completedToolCalls,
-        usedTokens: input.usedTokens,
-        usedSeconds: input.usedSeconds,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM "Run" WHERE id = ${runId} FOR UPDATE`;
+      const run = await tx.run.findUniqueOrThrow({ where: { id: runId }, include: { task: true } });
+      const attempt = await tx.attempt.findUniqueOrThrow({ where: { id: input.attemptId } });
+      if (attempt.runId !== runId || attempt.status !== 'RUNNING' ||
+        !attempt.leaseExpiresAt || attempt.leaseExpiresAt <= new Date() ||
+        !['RUNNING', 'VERIFYING'].includes(run.status) || input.baseCommit !== run.baseCommit) {
+        throw new ConflictException('Checkpoint writer no longer owns a running attempt');
+      }
+      const checkpoint = await tx.checkpoint.create({ data: { runId, ...input } });
+      if (!run.task.snapshot) await tx.run.updateMany({
+        where: { id: runId, usedTokens: { lt: input.usedTokens } }, data: { usedTokens: input.usedTokens },
+      });
+      return { checkpointId: checkpoint.id };
     });
-    await this.prisma.run.update({
-      where: { id: runId },
-      data: { usedTokens: input.usedTokens },
-    });
-    return { checkpointId: checkpoint.id };
   }
 
   /** RESUME 时 Runtime 拉取 checkpoint + 上一次失败上下文（用于反馈注入） */
@@ -448,8 +481,9 @@ export class RunLifecycleService {
     if (!attempt || (attempt.status !== 'RUNNING' && attempt.status !== 'CLAIMED')) return;
 
     await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM "Run" WHERE id = ${attempt.runId} FOR UPDATE`;
       const marked = await tx.attempt.updateMany({
-        where: { id: attemptId, status: { in: ['CLAIMED', 'RUNNING'] } },
+        where: { id: attemptId, status: { in: ['CLAIMED', 'RUNNING'] }, leaseExpiresAt: { lte: new Date() } },
         data: { status: 'LEASE_EXPIRED', failureCode: 'WORKER_LOST', endedAt: new Date() },
       });
       if (marked.count === 0) return; // 已被并发处理
@@ -472,7 +506,22 @@ export class RunLifecycleService {
     attemptNo: number,
     failureCode: FailureCode,
   ) {
-    const run = await tx.run.findUniqueOrThrow({ where: { id: runId }, include: { task: true } });
+    const run = await tx.run.findUniqueOrThrow({ where: { id: runId }, include: { task: { include: { project: true } } } });
+    if (run.task.snapshot && run.activeStartedAt) {
+      const elapsed = Math.ceil((Date.now() - run.activeStartedAt.getTime()) / 1000);
+      run.usedSeconds += elapsed;
+      run.activeStartedAt = null;
+      await tx.run.update({ where: { id: runId }, data: { usedSeconds: run.usedSeconds, activeStartedAt: null } });
+    }
+    if (run.task.snapshot) {
+      const unresolved = await tx.budgetCall.count({ where: { runId, status: { not: 'SETTLED' } } });
+      const elapsed = run.usedSeconds + (run.activeStartedAt ? Math.ceil((Date.now() - run.activeStartedAt.getTime()) / 1000) : 0);
+      if (unresolved || run.usedTokens >= run.budgetTokens || elapsed >= run.budgetSeconds || (run.deadlineAt && run.deadlineAt <= new Date())) {
+        await tx.run.update({ where: { id: runId }, data: { phase: 'NEEDS_ATTENTION', usedSeconds: elapsed, activeStartedAt: null } });
+        await tx.task.update({ where: { id: run.taskId }, data: { status: 'NEEDS_ATTENTION', attentionReason: unresolved ? 'MODEL_USAGE_UNKNOWN' : 'BUDGET_EXHAUSTED' } });
+        return;
+      }
+    }
     const decision = run.recoveryDisabled
       ? {
           action: 'ABORT' as const,
@@ -486,13 +535,23 @@ export class RunLifecycleService {
     this.logger.log(`Policy: ${decision.reason}`);
 
     if (decision.action === 'RESUME' || decision.action === 'RESTART_ATTEMPT') {
+      if (run.task.snapshot) {
+        run.usedSeconds += Math.ceil(decision.backoffMs / 1000);
+        await tx.run.update({ where: { id: runId }, data: { usedSeconds: run.usedSeconds, phase: 'QUEUED' } });
+        if (run.usedSeconds >= run.budgetSeconds) {
+          await tx.run.update({ where: { id: runId }, data: { phase: 'NEEDS_ATTENTION' } });
+          await tx.task.update({ where: { id: run.taskId }, data: { status: 'NEEDS_ATTENTION', attentionReason: 'BUDGET_EXHAUSTED' } });
+          return;
+        }
+      }
       const checkpoint =
         decision.action === 'RESUME'
           ? await tx.checkpoint.findFirst({ where: { runId }, orderBy: { createdAt: 'desc' } })
           : null;
       const nextAttemptNo = attemptNo + 1;
       await this.transitionRun(tx, runId, 'INTERRUPTED', 'RECOVERING');
-      const command = this.buildRunCommand({
+      const command = run.task.snapshot ? commandFromSnapshot(TaskSnapshotSchema.parse(run.task.snapshot),
+        run.task.project.repoPath, runId, nextAttemptNo, run.usedTokens, run.usedSeconds, checkpoint?.id) : this.buildRunCommand({
         type: decision.action === 'RESUME' && checkpoint ? 'RESUME_RUN' : 'START_RUN',
         runId,
         attemptNo: nextAttemptNo,
@@ -505,8 +564,16 @@ export class RunLifecycleService {
         budgetSeconds: run.budgetSeconds,
         budgetTurns: run.budgetTurns,
       });
+      if (!run.task.snapshot) {
+        const original = await tx.outboxMessage.findFirst({ where: { key: runId, topic: 'run-commands' }, orderBy: { createdAt: 'asc' } });
+        if (original) {
+          const frozen = RunCommandSchema.parse(original.payload);
+          command.repo = frozen.repo;
+          command.taskSpec = frozen.taskSpec;
+        }
+      }
       await tx.outboxMessage.create({
-        data: { topic: 'run-commands', key: runId, payload: command as object },
+        data: { topic: 'run-commands', key: runId, payload: command as object, notBefore: new Date(Date.now() + decision.backoffMs) },
       });
       await this.appendSyntheticEvent(
         tx,
@@ -524,6 +591,7 @@ export class RunLifecycleService {
     }
 
     if (decision.action === 'ABORT') {
+      await tx.run.update({ where: { id: runId }, data: { phase: 'FAILED', activeStartedAt: null } });
       await this.transitionRun(tx, runId, 'INTERRUPTED', 'FAILED');
       if (run.task.status === 'RUNNING') {
         await this.transitionTask(tx, run.task.id, 'RUNNING', 'FAILED');
@@ -531,6 +599,8 @@ export class RunLifecycleService {
       return;
     }
 
+    await tx.run.update({ where: { id: runId }, data: { phase: 'NEEDS_ATTENTION', activeStartedAt: null } });
+    await tx.task.update({ where: { id: run.taskId }, data: { status: 'NEEDS_ATTENTION', attentionReason: failureCode } });
     // ESCALATE_HUMAN：Run 停在 INTERRUPTED，等待人工介入（取消或手动重试）
   }
 }

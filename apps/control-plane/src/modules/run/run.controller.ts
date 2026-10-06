@@ -1,16 +1,23 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import { RunControlService } from './run-control.service';
+import { Controller, Get, NotFoundException, Param, Query, Post } from '@nestjs/common';
 import { TRACE_EVENT_TYPES } from '@arp/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('api/runs')
 export class RunController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly control: RunControlService) {}
+
+  @Post(':id/pause') pause(@Param('id') id: string) { return this.control.pauseRun(id); }
+  @Post(':id/cancel') cancel(@Param('id') id: string) { return this.control.cancel(id); }
+  @Post(':id/resume') resume(@Param('id') id: string) { return this.control.resume(id); }
 
   @Get(':id')
   async get(@Param('id') id: string) {
     const run = await this.prisma.run.findUnique({
       where: { id },
       include: {
+        task: true,
+        artifacts: { select: { id: true, name: true, kind: true, createdAt: true } },
         attempts: { orderBy: { no: 'asc' } },
         policyDecisions: { orderBy: { createdAt: 'asc' } },
         verificationResults: { orderBy: { createdAt: 'asc' } },
@@ -45,6 +52,13 @@ export class RunController {
   }
 
   /** LLM Judge 报告（review 页逐条分数 + 评测 CLI judgeScores 数据源） */
+  @Get(':id/artifacts/:artifactId')
+  async artifact(@Param('id') id: string, @Param('artifactId') artifactId: string) {
+    const artifact = await this.prisma.artifact.findFirst({ where: { id: artifactId, runId: id } });
+    if (!artifact) throw new NotFoundException('Artifact not found');
+    return artifact;
+  }
+
   @Get(':id/judge')
   async judge(@Param('id') id: string) {
     const artifact = await this.prisma.artifact.findFirst({

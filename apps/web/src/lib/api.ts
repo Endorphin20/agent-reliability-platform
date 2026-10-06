@@ -5,6 +5,7 @@ export const API_BASE =
 
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });

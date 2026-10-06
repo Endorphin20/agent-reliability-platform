@@ -17,3 +17,7 @@ apps/web/.playwright-cli/
 .setup-complete
 .dev-logs/
 .dev-pids/
+
+# Browser verification output
+apps/web/test-results/
+apps/web/playwright-report/

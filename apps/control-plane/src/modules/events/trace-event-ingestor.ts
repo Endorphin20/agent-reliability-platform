@@ -53,6 +53,8 @@ export class TraceEventIngestor implements OnModuleInit, OnModuleDestroy {
   private async consumeLoop() {
     while (!this.stopped && this.client) {
       try {
+        const recovered = await this.redis.client.xautoclaim(TRACE_EVENTS_STREAM, TRACE_EVENTS_GROUP, 'cp-1', 30000, '0', 'COUNT', 50);
+        for (const [entryId, fields] of recovered[1] as [string, string[]][]) await this.handleEntry(entryId, fields);
         const response = (await this.client.xreadgroup(
           'GROUP',
           TRACE_EVENTS_GROUP,
@@ -74,6 +76,7 @@ export class TraceEventIngestor implements OnModuleInit, OnModuleDestroy {
       } catch (error) {
         if (this.stopped) return;
         this.logger.error(`消费 trace-events 失败: ${String(error)}`);
+        if (String(error).includes('NOGROUP')) await this.ensureGroup().catch(() => undefined);
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }

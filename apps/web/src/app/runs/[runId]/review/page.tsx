@@ -105,7 +105,7 @@ export default function ReviewPage({
           {approval.status === "PENDING" && (
             <div className="flex items-center gap-4">
               <p className="flex-1 text-sm text-zinc-600">
-                V1–V6 门禁已通过。请核对 diff 与 Judge 评分后决定是否创建修复 PR。
+                已配置的验证检查通过。请核对补丁和测试报告；批准后按任务中确认的交付方式执行。
               </p>
               <button
                 onClick={() => decide.mutate("REJECTED")}
@@ -119,7 +119,7 @@ export default function ReviewPage({
                 disabled={decide.isPending}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-40"
               >
-                批准并创建 PR
+                批准交付
               </button>
             </div>
           )}
@@ -139,7 +139,7 @@ export default function ReviewPage({
           {approval.status === "APPROVED" && !approval.prUrl && (
             <div className="flex items-center gap-4">
               <div className="flex-1 text-sm text-zinc-600">
-                已批准，PR 创建中或失败{task.data?.status === "PR_FAILED" && "（PR_FAILED）"}
+                {task.data?.status === "RESOLVED" ? "补丁已批准，可从时间线下载。" : "已批准，PR 创建中或交付失败。"}
                 {approval.prError && (
                   <p className="mt-1 font-mono text-xs text-red-600">{approval.prError}</p>
                 )}
@@ -158,6 +158,7 @@ export default function ReviewPage({
           {approval.status === "REJECTED" && (
             <p className="text-sm text-red-600">已拒绝此修复。</p>
           )}
+          {retryPr.isError && <p role="alert">{String(retryPr.error)}</p>}
           {decide.isError && (
             <p className="mt-2 text-xs text-red-600">{String(decide.error)}</p>
           )}
@@ -270,7 +271,7 @@ function VerifierCard({
         <span className="text-sm font-bold">
           {step} {STEP_NAMES[step]}
         </span>
-        <span className="text-sm">{!result ? "—" : result.passed ? "✅" : "❌"}</span>
+        <span className="text-sm">{!result ? "—" : result.detail?.skipped ? "未配置" : result.passed ? "✅" : "❌"}</span>
       </div>
       {result && (
         <>

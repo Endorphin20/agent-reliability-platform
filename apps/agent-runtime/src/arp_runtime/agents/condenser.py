@@ -17,6 +17,7 @@ import time
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from arp_runtime.agents.llm import usage_tokens
+from arp_runtime.agents.budgeted_model import budget_call, UsageUnknown, request_options
 from arp_runtime.events import EventEmitter
 
 logger = logging.getLogger("arp.condenser")
@@ -66,10 +67,10 @@ class Condenser:
             return self.cache[key]
         start = time.monotonic()
         try:
-            response = self.model.invoke([
+            response = budget_call(lambda: self.model.invoke([
                 SystemMessage(content=CONDENSE_SYSTEM),
                 HumanMessage(content=self._clip(content)),
-            ])
+            ], **request_options()))
             prompt_tokens, completion_tokens = usage_tokens(response)
             summary = (f"[已压缩摘要，原文 {len(content)} 字符；需要原文请重新调用工具]\n"
                        + str(response.content).strip())
@@ -83,6 +84,8 @@ class Condenser:
                     "latencyMs": int((time.monotonic() - start) * 1000),
                     "turn": self.turn,
                 })
+        except UsageUnknown:
+            raise
         except Exception:  # noqa: BLE001 摘要失败降级为占位符，不中断 attempt
             logger.exception("condense 调用失败，降级为 fold 占位符")
             summary = fold_placeholder(len(content))

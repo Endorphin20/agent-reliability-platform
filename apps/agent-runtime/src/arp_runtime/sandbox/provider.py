@@ -8,6 +8,8 @@
 """
 
 import logging
+import hashlib
+import os
 import shutil
 import subprocess
 import tempfile
@@ -22,6 +24,7 @@ from arp_runtime.config import get_settings
 logger = logging.getLogger("arp.sandbox")
 
 LABEL_RUN_ID = "arp.run_id"
+LABEL_OWNER = "arp.owner"
 
 
 @dataclass
@@ -80,6 +83,9 @@ class DockerSandboxProvider:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.client = docker.from_env()
+        self.attempt_id: str | None = None
+        identity = self.settings.control_plane_url + ':' + os.environ.get('ARP_DATA_DIR', str(Path.home() / '.arp'))
+        self.owner = hashlib.sha256(identity.encode()).hexdigest()[:24]
 
     def _prepare_workdir(self, repo_path: str, base_ref: str) -> Path:
         """把 fixture 仓库在 base_ref 处的工作副本检出到独立临时目录。"""
@@ -99,20 +105,28 @@ class DockerSandboxProvider:
         except subprocess.CalledProcessError as exc:
             shutil.rmtree(workdir, ignore_errors=True)
             raise SandboxError(f"检出 {base_ref} 失败: {exc.stderr.decode(errors='replace')}") from exc
+        # Verify exact SHA for snapshot tasks; remove local origin paths and inherited hooks.
+        actual = subprocess.run(["git", "rev-parse", "HEAD"], cwd=workdir / "repo",
+            check=True, capture_output=True, text=True).stdout.strip()
+        if len(base_ref) == 40 and actual != base_ref:
+            shutil.rmtree(workdir, ignore_errors=True)
+            raise SandboxError("Checked-out SHA differs from confirmed snapshot")
+        subprocess.run(["git", "remote", "remove", "origin"], cwd=workdir / "repo", check=True, capture_output=True)
+        shutil.rmtree(workdir / "repo" / ".git" / "hooks", ignore_errors=True)
         # Linux 宿主上 bind mount 保留属主 uid，容器内 agent(10001) 会因此写不了
         # /workspace（macOS Docker Desktop 的文件映射掩盖了这一点）。工作副本是
         # 一次性检出，放开权限是安全的
         subprocess.run(["chmod", "-R", "a+rwX", str(workdir)], check=True, timeout=60)
         return workdir / "repo"
 
-    def start(self, run_id: str, repo_path: str, base_ref: str) -> Sandbox:
+    def start(self, run_id: str, repo_path: str, base_ref: str, image_id: str | None = None) -> Sandbox:
         workdir = self._prepare_workdir(repo_path, base_ref)
         try:
             container = self.client.containers.run(
-                self.settings.sandbox_image,
+                image_id or self.settings.sandbox_image,
                 command=["sleep", "infinity"],
                 detach=True,
-                labels={LABEL_RUN_ID: run_id},
+                labels={LABEL_RUN_ID: run_id, LABEL_OWNER: self.owner, **({"arp.attempt_id": self.attempt_id} if self.attempt_id else {})},
                 nano_cpus=int(self.settings.sandbox_cpus * 1e9),
                 mem_limit=self.settings.sandbox_memory,
                 pids_limit=256,
@@ -120,7 +134,7 @@ class DockerSandboxProvider:
                     "none" if self.settings.sandbox_network_mode == "none" else "bridge"
                 ),
                 read_only=True,
-                tmpfs={"/tmp": "rw,size=512m", "/home/agent": "rw,size=256m"},
+                tmpfs={"/tmp": "rw,size=512m", "/home/agent": "rw,size=256m", "/workspace/.git": "ro,size=1m"},
                 volumes={str(workdir): {"bind": "/workspace", "mode": "rw"}},
                 working_dir="/workspace",
                 environment={"HOME": "/home/agent"},

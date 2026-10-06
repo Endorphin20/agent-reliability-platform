@@ -27,6 +27,7 @@ enum TaskStatus {
   REJECTED
   FAILED
   CANCELLED
+  NEEDS_ATTENTION
 }
 
 enum RunStatus {
@@ -136,6 +137,31 @@ model Project {
   defaultBranch String    @default("main")
   tasks         Task[]
   createdAt     DateTime  @default(now())
+  repoUrl       String?
+  readCredential String?
+  writeCredential String?
+  configs       RepositoryConfigVersion[]
+  drafts        TaskDraft[]
+}
+
+model RepositoryConfigVersion {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id])
+  version Int
+  config Json
+  createdAt DateTime @default(now())
+  @@unique([projectId, version])
+}
+
+model TaskDraft {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id])
+  snapshot Json
+  revision Int @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Task {
@@ -153,6 +179,11 @@ model Task {
   approval     Approval?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  snapshot     Json?
+  snapshotDigest String?
+  confirmationKey String? @unique
+  parentTaskId String?
+  attentionReason String?
 }
 
 model Run {
@@ -182,6 +213,13 @@ model Run {
   evaluationResults   EvaluationResult[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+  phase               String @default("QUEUED")
+  environmentId       String?
+  imageId             String?
+  baseline            Json?
+  activeStartedAt     DateTime?
+  deadlineAt          DateTime?
+  budgetCalls         BudgetCall[]
 }
 
 model Attempt {
@@ -195,6 +233,7 @@ model Attempt {
   leaseExpiresAt      DateTime?
   startedAt           DateTime             @default(now())
   endedAt             DateTime?
+  leaseToken          String? @unique
   traceEvents         TraceEvent[]
   checkpoints         Checkpoint[]
   artifacts           Artifact[]
@@ -294,6 +333,59 @@ model Approval {
   prUrl     String?
   prError   String? // PR 创建失败原因，前端展示重试按钮
   createdAt DateTime       @default(now())
+  patchDigest String?
+  delivery DeliveryJob?
+}
+
+model EnvironmentVersion {
+  id String @id @default(cuid())
+  fingerprint String @unique
+  status String @default("PREPARING")
+  imageId String?
+  registryDigest String?
+  log String @default("")
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BudgetCall {
+  id String @id
+  runId String
+  run Run @relation(fields: [runId], references: [id])
+  reserved Int
+  used Int?
+  status String @default("RESERVED")
+  createdAt DateTime @default(now())
+  @@index([runId])
+}
+
+model DeliveryJob {
+  id String @id @default(cuid())
+  approvalId String @unique
+  approval Approval @relation(fields: [approvalId], references: [id])
+  status String @default("QUEUED")
+  attempts Int @default(0)
+  patchDigest String
+  branch String
+  commitSha String?
+  prUrl String?
+  error String?
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id String @id @default(cuid())
+  eventKey String @unique
+  taskId String
+  kind String
+  message String
+  readAt DateTime?
+  createdAt DateTime @default(now())
 }
 
 model OutboxMessage {
@@ -305,6 +397,7 @@ model OutboxMessage {
   attempts    Int          @default(0)
   createdAt   DateTime     @default(now())
   publishedAt DateTime?
+  notBefore   DateTime @default(now())
 
   @@index([status, createdAt])
 }

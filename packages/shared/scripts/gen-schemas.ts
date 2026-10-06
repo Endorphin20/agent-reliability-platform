@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { TraceEventSchema } from "../src/trace-event";
 import { RunCommandSchema } from "../src/run-command";
+import { TaskSnapshotSchema } from "../src/task-snapshot";
 import * as enums from "../src/enums";
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "schemas");
@@ -22,6 +23,7 @@ function emit(name: string, schema: z.ZodType) {
 
 emit("trace-event", TraceEventSchema);
 emit("run-command", RunCommandSchema);
+emit("task-snapshot", TaskSnapshotSchema);
 
 // 枚举清单单独导出，供 Python / Prisma 做集合比对
 const enumSets: Record<string, readonly string[]> = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { RunControls } from "../../../components/run-controls";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
@@ -127,6 +128,7 @@ export default function RunTimelinePage({
         </div>
       </div>
 
+      <RunControls runId={runId} />
       {/* 预算条 */}
       <div className="grid grid-cols-3 gap-4">
         <BudgetBar

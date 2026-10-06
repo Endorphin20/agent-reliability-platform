@@ -2,6 +2,302 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 2
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 2
+        },
+        "mode": {
+          "type": "string",
+          "const": "REAL"
+        },
+        "repositoryId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parentTaskId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "executionSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "agentKind": {
+          "type": "string",
+          "enum": [
+            "SELF_LANGGRAPH",
+            "MINI_SWE"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        "config": {
+          "type": "object",
+          "properties": {
+            "runtime": {
+              "type": "string",
+              "enum": [
+                "python-pytest"
+              ]
+            },
+            "defaultDelivery": {
+              "type": "string",
+              "enum": [
+                "patch",
+                "pull-request"
+              ]
+            },
+            "preparation": {
+              "type": "string",
+              "enum": [
+                "image",
+                "requirements"
+              ]
+            },
+            "image": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "dependencyFiles": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "workdir": {
+              "default": ".",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "allowedPaths": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "protectedPaths": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "staticCheck": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "failToPass": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "passToPass": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "acceptanceCriteria": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "runtime",
+            "preparation",
+            "image",
+            "dependencyFiles",
+            "workdir",
+            "allowedPaths",
+            "protectedPaths",
+            "staticCheck",
+            "failToPass",
+            "passToPass",
+            "acceptanceCriteria"
+          ],
+          "additionalProperties": false
+        },
+        "baseline": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "expected": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "command",
+            "expected"
+          ],
+          "additionalProperties": false
+        },
+        "budget": {
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 10000000
+            },
+            "seconds": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 86400
+            },
+            "turns": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            },
+            "maxAttempts": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "tokens",
+            "seconds",
+            "turns",
+            "maxAttempts"
+          ],
+          "additionalProperties": false
+        },
+        "delivery": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "patch",
+                "pull-request"
+              ]
+            },
+            "targetBranch": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "expectedTargetSha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          },
+          "required": [
+            "kind",
+            "targetBranch",
+            "expectedTargetSha"
+          ],
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "prUrl": {
+              "type": "string",
+              "format": "uri"
+            },
+            "headSha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "baseSha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "ciSha": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "string",
+              "maxLength": 100000
+            }
+          },
+          "required": [
+            "prUrl",
+            "headSha",
+            "baseSha",
+            "ciSha",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "mode",
+        "repositoryId",
+        "configVersion",
+        "executionSha",
+        "agentKind",
+        "title",
+        "description",
+        "config",
+        "baseline",
+        "budget",
+        "delivery"
+      ],
+      "additionalProperties": false
+    },
     "commandId": {
       "type": "string",
       "minLength": 1
@@ -93,7 +389,6 @@
         }
       },
       "required": [
-        "fixtureId",
         "description",
         "workdir",
         "allowedPaths",

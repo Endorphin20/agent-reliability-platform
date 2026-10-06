@@ -8,6 +8,7 @@
     "CREATED",
     "QUEUED",
     "RUNNING",
+    "NEEDS_ATTENTION",
     "AWAITING_APPROVAL",
     "APPROVED",
     "PR_CREATED",

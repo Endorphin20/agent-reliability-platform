@@ -10,6 +10,8 @@
   （recoveryMode=attempt-restart），失败反馈以文本注入新任务提示。
 """
 
+from arp_runtime.agents.budgeted_model import budget_call, request_options
+
 import hashlib
 import logging
 import os
@@ -155,12 +157,16 @@ class InstrumentedMiniModel:
                 "api_key": settings.llm_api_key,
                 "temperature": 0,
                 "timeout": 120,
-                "drop_params": True,
+                "drop_params": False,
+                "max_tokens": settings.llm_max_output_tokens,
+                "num_retries": 0,
             },
             cost_tracking="ignore_errors",
             observation_template=OBSERVATION_TEMPLATE,
             format_error_template=FORMAT_ERROR_TEMPLATE,
         )
+        # Disable mini-SWE's Tenacity retries as well as LiteLLM retries.
+        self._inner.abort_exceptions = [Exception, KeyboardInterrupt]
         self.config = self._inner.config
         self.emitter = emitter
         self.budget = budget
@@ -178,7 +184,10 @@ class InstrumentedMiniModel:
         maybe_inject_model_fault()
         start = time.monotonic()
         try:
-            message = self._inner.query(messages, **kwargs)
+            message = budget_call(lambda: self._inner.query(messages, **{**kwargs, **request_options()}), usage=lambda value: {
+                "input_tokens": value["extra"]["response"]["usage"]["prompt_tokens"],
+                "output_tokens": value["extra"]["response"]["usage"]["completion_tokens"],
+            })
         except Exception as exc:
             from minisweagent.exceptions import FormatError
 

@@ -1,3 +1,4 @@
+import { DeliveryService } from '../github/delivery.service';
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { taskStateMachine } from '../../state-machine/state-machine';
@@ -14,6 +15,7 @@ export class ApprovalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
+    private readonly deliveries: DeliveryService,
   ) {}
 
   async decide(approvalId: string, decision: 'APPROVED' | 'REJECTED', reviewer?: string) {
@@ -22,6 +24,7 @@ export class ApprovalService {
       include: { task: true },
     });
     if (!approval) return null;
+    if (approval.task.snapshot) return decision === 'APPROVED' ? this.deliveries.approve(approvalId, reviewer) : this.deliveries.reject(approvalId, reviewer);
     if (approval.status !== 'PENDING') {
       throw new ConflictException(`Approval ${approvalId} 已是 ${approval.status}，不可重复裁决`);
     }
@@ -59,6 +62,7 @@ export class ApprovalService {
       include: { task: true },
     });
     if (!approval) return null;
+    if (approval.task.snapshot) return this.deliveries.retry(approvalId);
     if (approval.task.status !== 'PR_FAILED') {
       throw new ConflictException(`Task 状态是 ${approval.task.status}，只有 PR_FAILED 可重试`);
     }
