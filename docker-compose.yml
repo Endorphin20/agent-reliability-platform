@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
     environment:
       POSTGRES_USER: arp
       POSTGRES_PASSWORD: arp
@@ -17,8 +17,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
     ports:
-      - "56379:6379"
+      - "127.0.0.1:56379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -35,4 +38,5 @@ services:
       - observability
 
 volumes:
+  redisdata:
   pgdata:

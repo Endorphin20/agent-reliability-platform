@@ -27,12 +27,14 @@ export function useRunEvents(runId: string) {
   const failures = useRef(0);
   const lastSequence = useRef(0);
 
+  const previousRun = useRef(runId);
   useEffect(() => {
-    const url = new URL(`${API_BASE}/api/runs/${runId}/events/stream`);
+    if (previousRun.current !== runId) { lastSequence.current = 0; previousRun.current = runId; }
+    const url = new URL(`${API_BASE}/api/runs/${runId}/events/stream`, window.location.origin);
     if (lastSequence.current > 0) {
       url.searchParams.set("lastEventId", String(lastSequence.current));
     }
-    const source = new EventSource(url);
+    const source = new EventSource(url, { withCredentials: true });
 
     source.addEventListener("trace", (message: MessageEvent<string>) => {
       failures.current = 0;

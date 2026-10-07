@@ -15,6 +15,7 @@ import time
 from typing import Any
 
 from arp_runtime.config import get_settings
+from arp_runtime.agents.budgeted_model import budget_call, UsageUnknown, request_options
 
 logger = logging.getLogger("arp.judge")
 
@@ -73,16 +74,18 @@ def judge_run(
             api_key=settings.judge_llm_api_key,
             base_url=settings.judge_llm_base_url or None,
             timeout=120,
-            max_retries=1,
+            max_retries=0,
         )
-        response = client.chat.completions.create(
+        response = budget_call(lambda: client.chat.completions.create(
             model=settings.judge_llm_model,
+            **request_options(),
             messages=[
                 {"role": "system", "content": JUDGE_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0,
-        )
+            max_tokens=settings.llm_max_output_tokens,
+        ), usage=lambda result: {"input_tokens": result.usage.prompt_tokens, "output_tokens": result.usage.completion_tokens} if result.usage else None)
         raw = response.choices[0].message.content or ""
         report = json.loads(_strip_fences(raw))
         criteria = report.get("criteria")
@@ -96,6 +99,8 @@ def judge_run(
             "overallComment": str(report.get("overallComment", "")),
             "latencyMs": int((time.monotonic() - start) * 1000),
         }
+    except UsageUnknown:
+        raise
     except Exception as exc:  # noqa: BLE001 Judge 不否决：任何失败只记录不影响 Run
         logger.warning("Judge 调用失败（不影响 Run 结果）: %s", exc)
         return None

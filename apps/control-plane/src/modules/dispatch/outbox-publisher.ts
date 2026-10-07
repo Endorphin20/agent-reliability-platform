@@ -13,6 +13,7 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxPublisher.name);
   private timer?: NodeJS.Timeout;
   private running = false;
+  private reconciledAt = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -32,14 +33,25 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
     if (this.running) return 0; // 防止上一轮未完成时重入
     this.running = true;
     try {
+      if (Date.now() - this.reconciledAt > 60000) {
+        this.reconciledAt = Date.now();
+        const waiting = await this.prisma.run.findMany({ where: { status: 'DISPATCHED', updatedAt: { lt: new Date(Date.now() - 60000) } }, take: 100 });
+        for (const run of waiting) {
+          const message = await this.prisma.outboxMessage.findFirst({ where: { key: run.id, topic: 'run-commands' }, orderBy: { createdAt: 'desc' } });
+          if (message?.status === 'PUBLISHED' && message.publishedAt && message.publishedAt.getTime() < Date.now() - 60000) {
+            await this.prisma.outboxMessage.update({ where: { id: message.id }, data: { status: 'PENDING' } });
+          }
+        }
+      }
       const pending = await this.prisma.outboxMessage.findMany({
-        where: { status: 'PENDING' },
+        where: { status: 'PENDING', notBefore: { lte: new Date() } },
         orderBy: { createdAt: 'asc' },
         take: 20,
       });
       let published = 0;
       for (const message of pending) {
         try {
+          if (message.topic !== 'run-commands') throw new Error('Unsupported outbox topic');
           await this.redis.client.xadd(
             RUN_COMMANDS_STREAM,
             '*',

@@ -30,7 +30,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
-jqr() { curl -sf "$1" | jq -r "$2"; }
+api_curl() {
+  local token_file="${ARP_DATA_DIR:-$HOME/.arp}/access-token"
+  if [ -f "$token_file" ]; then
+    # Config is read through stdin; the access token is not in process arguments.
+    { printf 'header = "Authorization: Bearer '; tr -d '\n' < "$token_file"; printf '"\n'; } | command curl --config - "$@"
+  else
+    command curl "$@"
+  fi
+}
+jqr() { api_curl -sf "$1" | jq -r "$2"; }
 
 wait_eq() { # wait_eq <url> <jq_expr> <expected> <timeout_s>
   local t=0
@@ -41,7 +50,7 @@ wait_eq() { # wait_eq <url> <jq_expr> <expected> <timeout_s>
 }
 
 create_task() { # create_task <fixtureId> <agentKind>；输出 "taskId runId"
-  curl -sf -X POST "$API/api/tasks" -H 'Content-Type: application/json' \
+  api_curl -sf -X POST "$API/api/tasks" -H 'Content-Type: application/json' \
     -d "{\"fixtureId\":\"$1\",\"agentKind\":\"$2\"}" | jq -r '"\(.taskId) \(.runId)"'
 }
 
@@ -81,7 +90,7 @@ read -r TASK_ID RUN_ID <<<"$(create_task ts-logic-001 SELF_LANGGRAPH)"
 echo "task=$TASK_ID run=$RUN_ID"
 wait_eq "$API/api/tasks/$TASK_ID" '.status' 'AWAITING_APPROVAL' 900
 APPROVAL_ID="$(jqr "$API/api/tasks/$TASK_ID" '.approval.id')"
-curl -sf -X POST "$API/api/approvals/$APPROVAL_ID/decide" \
+api_curl -sf -X POST "$API/api/approvals/$APPROVAL_ID/decide" \
   -H 'Content-Type: application/json' -d '{"decision":"APPROVED"}' >/dev/null
 wait_eq "$API/api/tasks/$TASK_ID" '.status' 'PR_CREATED' 60
 echo "PR URL: $(jqr "$API/api/tasks/$TASK_ID" '.approval.prUrl')"   # dev 为 mock URL

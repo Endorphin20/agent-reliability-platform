@@ -14,6 +14,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 
 from arp_runtime.config import get_settings
+from arp_runtime.agents.budgeted_model import budget_call, request_options
 
 
 class ModelRateLimitError(Exception):
@@ -108,13 +109,14 @@ class OpenAICompatibleModel:
             temperature=0,
             timeout=120,
             max_retries=0,
+            max_tokens=settings.llm_max_output_tokens,
         )
         self._bound = base.bind_tools(tools)
 
     def invoke(self, messages: list[BaseMessage]) -> AIMessage:
         maybe_inject_model_fault()
         try:
-            return self._bound.invoke(messages)  # type: ignore[return-value]
+            return budget_call(lambda: self._bound.invoke(messages, **request_options()))  # type: ignore[return-value]
         except Exception as exc:  # noqa: BLE001
             if "429" in str(exc) or "rate limit" in str(exc).lower():
                 raise ModelRateLimitError(str(exc)) from exc
@@ -155,8 +157,8 @@ def build_condenser_model() -> Any:
         base_url=settings.llm_base_url or None,
         temperature=0,
         timeout=60,
-        max_retries=1,
-        max_tokens=400,
+        max_retries=0,
+        max_tokens=min(400, settings.llm_max_output_tokens),
     )
 
 

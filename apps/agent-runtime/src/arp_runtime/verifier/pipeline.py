@@ -18,7 +18,9 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Callable
 
+from arp_runtime.verifier.test_contract import run_check, coverage_preserved
 from arp_runtime.events import EventEmitter
+from arp_runtime.sandbox.patch import capture_patch
 from arp_runtime.sandbox.provider import Sandbox
 from arp_runtime.schemas.run_command import TaskSpec
 
@@ -49,13 +51,10 @@ class VerifyReport:
 
 
 def _git_diff(workdir: Path, base_commit: str) -> str:
-    result = subprocess.run(
-        ["git", "diff", base_commit],
-        cwd=workdir, capture_output=True, text=True, timeout=60,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"git diff 失败: {result.stderr[:500]}")
-    return result.stdout
+    try:
+        return capture_patch(workdir, base_commit)
+    except (ValueError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def _changed_files(workdir: Path, base_commit: str) -> list[str]:
@@ -67,7 +66,7 @@ def _changed_files(workdir: Path, base_commit: str) -> list[str]:
 
 
 def _is_test_file(path: str) -> bool:
-    return any(marker in path for marker in TEST_FILE_MARKERS)
+    return Path(path).name.startswith("test_") or any(marker in path for marker in TEST_FILE_MARKERS)
 
 
 def _git_apply(workdir: Path, patch: str, reverse: bool = False) -> None:
@@ -94,6 +93,9 @@ class VerifierPipeline:
         self.spec = task_spec
         self.base_commit = base_commit
         self.on_result = on_result
+        self.protected_paths: list[str] = []
+        self.verify_contract = False
+        self.baseline_cases: dict[str, dict[str, str]] = {}
 
     def _record(self, step: str, passed: bool, failure_code: str | None,
                 detail: dict[str, Any], started: float) -> StepResult:
@@ -112,15 +114,24 @@ class VerifierPipeline:
 
     def _run_commands(self, step: str, commands: list[str], failure_code: str) -> StepResult:
         started = time.monotonic()
+        outputs = []
         for command in commands:
-            exec_result = self.sandbox.exec(command, cwd=f"/workspace/{self.spec.workdir}")
+            if self.verify_contract:
+                exec_result, cases = run_check(self.sandbox, command, cwd=f"/workspace/{self.spec.workdir}")
+                if exec_result.exit_code == 0 and command in self.baseline_cases and not coverage_preserved(self.baseline_cases[command], cases or {}):
+                    return self._record(step, False, "VERIFY_TEST_TAMPERING", {"command": command, "error": "Original tests were removed, skipped or still failing", "testCases": cases, "stdoutTail": exec_result.combined[-3000:]}, started)
+                if cases is not None and not cases:
+                    return self._record(step, False, failure_code, {"command": command, "error": "No verifiable pytest test results"}, started)
+            else:
+                exec_result = self.sandbox.exec(command, cwd=f"/workspace/{self.spec.workdir}")
+            outputs.append({"command": command, "exitCode": exec_result.exit_code, "stdoutTail": exec_result.combined[-3000:]})
             if exec_result.exit_code != 0:
                 return self._record(step, False, failure_code, {
                     "command": command,
                     "exitCode": exec_result.exit_code,
                     "stdoutTail": exec_result.combined[-3000:],
                 }, started)
-        return self._record(step, True, None, {"commands": commands}, started)
+        return self._record(step, True, None, {"commands": commands, "outputs": outputs, "skipped": not commands}, started)
 
     def run(self) -> VerifyReport:
         results: list[StepResult] = []
@@ -160,7 +171,7 @@ class VerifierPipeline:
         # V6 提前于测试执行：若测试被篡改，V4/V5 的通过毫无意义，且属高危信号。
         # （事件与落库仍按步骤名 V6 上报，短路顺序是实现细节）
         started = time.monotonic()
-        tampered = [path for path in changed if _is_test_file(path)]
+        tampered = [path for path in changed if _is_test_file(path) or any(fnmatch(path, pattern) for pattern in self.protected_paths)]
         if tampered:
             results.append(self._record("V6", False, "VERIFY_TEST_TAMPERING",
                                         {"tamperedFiles": tampered}, started))

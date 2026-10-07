@@ -260,3 +260,7 @@ cp .env.example .env
 ```
 
 默认 `MOCK_MODE=true`，用于无 API Key 的本地演示；需要真实模型时在 `.env` 设置 `MOCK_MODE=false`、`LLM_API_KEY` 及对应端点。停止服务运行 `./scripts/stop.sh`，日志位于 `.dev-logs/`。
+
+## 本地自托管 PR 修复
+
+仓库接入、固定 SHA 任务、失败复现、预算账本、后台恢复、人工审批交付的配置与验证见 [本地 PR 修复指南](docs/acceptance/local-pr-preflight.md)。真实 GitHub／模型端到端验收按用户决定暂缓；本地验收不会向 GitHub 写入。

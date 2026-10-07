@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     heartbeat_ms: int = Field(default=10000, alias="HEARTBEAT_MS")
 
     mock_mode: bool = Field(default=True, alias="MOCK_MODE")
+    llm_context_token_limit: int = Field(default=0, alias="LLM_CONTEXT_TOKEN_LIMIT")
+    llm_max_output_tokens: int = Field(default=4096, alias="LLM_MAX_OUTPUT_TOKENS")
     llm_provider: str = Field(default="openai", alias="LLM_PROVIDER")
     llm_model: str = Field(default="glm-4.6v", alias="LLM_MODEL")
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
